@@ -18,8 +18,9 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "GETを使用してください",
 		})
-
+		return
 	}
+	
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "OK",
 	})
