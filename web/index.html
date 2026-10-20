@@ -18,39 +18,108 @@
 
     <body>
         <main class="app">
-            <!-- タイトル -->
-             <header class="site-header">
-                <h1 class="site-title">Space nows<span>.</span></h1>
-                <p class="site-description">次のISS観測チャンスを見つけよう</p>
-             </header>
+            <!-- タイトルとドキュメントへのリンク -->
+            <header class="site-header">
+                <div class="site-brand">
+                    <h1 class="site-title">Space now<span>.</span></h1>
+                    <p class="site-description">
+                        次のISS観測チャンスを見つけよう
+                    </p>
+                </div>
 
+                <a class="docs-link glass-card" href="../docs/index.html">
+                    APIドキュメント ↗
+                </a>
+            </header>
+
+            <!-- 地図の操作 -->
+            <div class="map-toolbar">
+                <!-- 左：都市選択と観測地点 -->
+                <div class="location-control">
+                    <div class="city-control">
+                        <label for="city-select">観測する都市</label>
+
+                        <select id="city-select">
+                            <option value="tokyo">東京都心</option>
+                            <option value="osaka">大阪市</option>
+                            <option value="kagoshima">鹿児島市</option>
+                        </select>
+                    </div>
+
+                    <p id="selected-city">観測地点：東京都心</p>
+                </div>
+
+                <!-- 右：地図の表示を切り替えるボタン -->
+                <div class="map-actions">
+                    <button
+                        id="focus-city"
+                        class="button button-primary"
+                        type="button"
+                    >
+                        観測地点へ移動
+                    </button>
+
+                    <button
+                        id="show-world"
+                        class="button button-secondary"
+                        type="button"
+                    >
+                        世界全体に戻す
+                    </button>
+                </div>
+            </div>
+
+            <!-- Leafletの地図 -->
+            <div id="map" aria-label="ISSの現在位置と観測地点の地図"></div>
+
+            <div class="map-footer">
+                <p id="iss-status" class="status" role="status">
+                    ISSの位置を取得しています…
+                </p>
+
+                <div class="map-caption">
+                    <p>
+                        背景画像：NASA Earth at Night 2012
+                        （現在の夜の範囲ではありません）
+                    </p>
+                </div>
+            </div>
+
+            <!-- 以下のカードは、今後APIと接続する表示の土台 -->
+            <div class="observation-panels">
+                <section class="glass-card" aria-labelledby="next-pass-title">
+                    <p class="card-eyebrow">NEXT PASS</p>
+                    <h2 id="next-pass-title">次のISS観測チャンス</h2>
+
+                    <p class="countdown-placeholder">-- : -- : --</p>
+
+                    <p class="panel-description">
+                        選択した都市での、次回の通過情報を表示します。
+                    </p>
+
+                    <p class="connection-note">
+                        通過情報APIはまだ接続していません。
+                    </p>
+                </section>
+
+                <section class="glass-card" aria-labelledby="passes-title">
+                    <p class="card-eyebrow">UPCOMING PASSES</p>
+                    <h2 id="passes-title">今後3日間の通過</h2>
+
+                    <div class="panel-placeholder">
+                        <p>ここに通過予定の一覧を表示します。</p>
+                        <p class="connection-note">
+                            通過情報APIはまだ接続していません。
+                        </p>
+                    </div>
+                </section>
+            </div>
         </main>
-        <h1>Space now</h1>
-
-        <label for="city-select">観測する都市</label>
-
-        <select id="city-select">
-            <option value="tokyo">東京都心</option>
-            <option value="osaka">大阪市</option>
-            <option value="kagoshima">鹿児島市</option>
-        </select>
-
-        <p id="selected-city">観測地点：東京都心</p>
-
-        <div class="map-actions">
-            <button id="focus-city" type="button">観測地点へ移動</button>
-            <button id="show-world" type="button">世界全体に戻す</button>
-        </div>
-
-        <!-- この中に地図が表示される -->
-        <div id="map"></div>
-
-        <p id="iss-status">ISSは動作確認用の仮の位置です。</p>
 
         <!-- Leafletを先に読み込む -->
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        <!-- その後で自分たちのJavaScriptを読み込む -->
+        <!-- 自分たちのJavaScript -->
         <script src="app.js"></script>
     </body>
 </html>

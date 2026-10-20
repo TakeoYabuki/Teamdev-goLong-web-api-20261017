@@ -68,7 +68,7 @@ function focusSelectedCity() {
     const city = cities[citySelect.value];
 
     if (!city) return;
-    map.setView([city.lat, city.lon], 8);
+    map.setView([city.lat, city.lon], 7);
 }
 
 // 初期の世界表示に戻す
