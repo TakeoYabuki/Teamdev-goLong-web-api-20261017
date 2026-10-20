@@ -68,7 +68,7 @@ function focusSelectedCity() {
     const city = cities[citySelect.value];
 
     if (!city) return;
-    map.setView([city.lat, city.lon], 7);
+    map.setView([city.lat, city.lon], 5);
 }
 
 // 初期の世界表示に戻す
@@ -107,17 +107,34 @@ function updateSelectedCity() {
 // 非同期 ISSの位置をapiから取ってくる
 async function fetchIssPosition() {
     // TODO: nowが返す構造
-    const response = await fetch(`${API_BASE_URL}/api/iss/now`);
+    // const response = await fetch(`${API_BASE_URL}/api/iss/now`);
+    // if (!response.ok) {
+    //     throw new Error(`ISSの一取得に失敗しました: HTTP ${response.status}`);
+    // }
 
-    if (!response.ok) {
-        throw new Error(`ISSの一取得に失敗しました: HTTP ${response.status}`);
-    }
+    // const data = await response.json();
 
-    const data = await response.json();
+    // // データがおかしいときのエラーハンドリング。
+    // if (
+    //     !Number.isFinite(data.lat) ||
+    //     !Number.isFinite(data.lon) ||
+    //     data.lat < -90 ||
+    //     data.lat > 90 ||
+    //     data.lon < -180 ||
+    //     data.lon > 180
+    // ) {
+    //     throw new Error("ISSの位置データが不正です");
+    // }
 
-    // TODO: データがおかしいときのエラーハンドリング。
-
-    return data;
+    // return data; // TODO: API完成したらこっちに変える
+    return {
+        lat: -30,
+        lon: 40,
+        altitudeKm: 420.5,
+        velocityKmh: 27580.2,
+        positionAt: new Date().toISOString(),
+        fetchedAt: new Date().toISOString(),
+    };
 }
 
 // ==================================================
@@ -125,11 +142,42 @@ async function fetchIssPosition() {
 // ==================================================
 
 // refreshISSから呼び出す
-// TODO: ISSの位置をLeafteのcircleMarkerで表示
-function updateISSMarker(position) {}
+// ISSの位置をLeafteのcircleMarkerで表示
+function updateISSMarker(position) {
+    const coordinates = [position.lat, position.lon];
 
-// TODO: ISSのデータをDomに挿入 textContent
-function updateISSStatus(position) {}
+    if (issMarker == null) {
+        issMarker = L.circleMarker(coordinates, {
+            radius: 8,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: "#38d9ff",
+            fillOpacity: 1,
+        })
+            .addTo(map)
+            .bindPopup("ISSの現在位置");
+    } else {
+        issMarker.setLatLng(coordinates);
+    }
+}
+
+// ISSのデータをDomに挿入 textContent
+function updateISSStatus(position) {
+    const positionAt = new Date(position.positionAt);
+
+    if (Number.isNaN(positionAt.getTime())) {
+        issStatus.textContent =
+            "ISSの位置を取得しました。データ時刻は不明です。";
+        return;
+    }
+
+    const formattedTime = positionAt.toLocaleString("ja-jp", {
+        timeZone: "Asia/Tokyo",
+        hour12: false,
+    });
+
+    issStatus.textContent = `ISSのデータ時刻: ${formattedTime}(日本時間)`;
+}
 
 // ==================================================
 // 7. 通信と表示をつなぐ処理
@@ -142,7 +190,12 @@ async function refreshISS() {
         updateISSMarker(position);
         updateISSStatus(position);
     } catch (error) {
-        // TODO: ISSを取得できなかった時のエラーハンドリング DOMに表示するほう
+        console.error("ISSの更新に失敗しました", error);
+        // ISSを取得できなかった時のエラーハンドリング DOMに表示するほう
+        issStatus.textContent =
+            issMarker === null
+                ? "ISSの位置を取得できませんでした。"
+                : "ISSの更新に失敗しました。マーカーは前回取得した位置です。";
     }
 }
 
@@ -164,5 +217,9 @@ focusCityButton.addEventListener("click", focusSelectedCity);
 showWorldButton.addEventListener("click", showWorld);
 
 // ISSの取得
+async function startISSUpdates() {
+    await refreshISS();
+    setTimeout(startISSUpdates, 5000); // 5秒おきに繰り返す
+}
 issStatus.textContent = "ISSの位置を取得しています_";
-refreshISS();
+startISSUpdates();
