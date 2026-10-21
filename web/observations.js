@@ -34,8 +34,7 @@ let countdownTimer = null;
 // ==================================================
 // GET /api/iss/passesを呼ぶ cityIDにはtokyoとかが入る
 async function fetchISSPasses(cityId, options = {}) {
-    // TODO: 後で消す
-    console.log("取得する都市と条件:", cityId, options);
+
     const {
         visibility = "",
         minElevation = 0,
@@ -115,7 +114,7 @@ async function fetchISSPasses(cityId, options = {}) {
     // 3件の通過オブジェクトを作る モックデータ加工用関数
     const passes = mockConditions.map((condition) => {
         const startTime = now + condition.hoursLater * 60 * 60 * 1000;
-
+      
         const maxTime = startTime + 3 * 60 * 1000;
         const endTime = startTime + 6 * 60 * 1000;
 
@@ -212,20 +211,31 @@ function updatePassCountdown(startTime) {
         Math.ceil((startTime - Date.now()) / 1000),
     );
 
+    if (remainingSeconds === 0) {
+        // タイマーが動いていたかを保存
+        const wasRunning = countdownTimer !== null;
+
+        // 今のカウントダウンを止める
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+
+        nextPassCountdown.textContent = "通過開始時刻です";
+
+        // カウントダウン中に0になったときだけ再取得
+        if (wasRunning) {
+            refreshPasses();
+        }
+
+        return;
+    }
+
     const hours = Math.floor(remainingSeconds / 3600);
     const minutes = Math.floor((remainingSeconds % 3600) / 60);
     const seconds = remainingSeconds % 60;
-
-    // 先頭0うめ
+    //  先頭0うめ
     const pad = (value) => String(value).padStart(2, "0");
-    nextPassCountdown.textContent = `${pad(hours)}時間 ${pad(minutes)}分 ${pad(seconds)}秒`;
 
-    // 開始時間になったらタイマーを止める
-    if (remainingSeconds === 0) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-        nextPassCountdown.textContent = "通過開始時刻です";
-    }
+    nextPassCountdown.textContent = `${pad(hours)}時間 ${pad(minutes)}分 ${pad(seconds)}秒`;
 }
 
 function renderNextPass(pass) {
