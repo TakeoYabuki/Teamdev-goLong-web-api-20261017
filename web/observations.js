@@ -34,7 +34,6 @@ let countdownTimer = null;
 // ==================================================
 // GET /api/iss/passesを呼ぶ cityIDにはtokyoとかが入る
 async function fetchISSPasses(cityId, options = {}) {
-
     const {
         visibility = "",
         minElevation = 0,
@@ -114,7 +113,7 @@ async function fetchISSPasses(cityId, options = {}) {
     // 3件の通過オブジェクトを作る モックデータ加工用関数
     const passes = mockConditions.map((condition) => {
         const startTime = now + condition.hoursLater * 60 * 60 * 1000;
-      
+
         const maxTime = startTime + 3 * 60 * 1000;
         const endTime = startTime + 6 * 60 * 1000;
 
@@ -272,18 +271,18 @@ function renderNextPass(pass) {
 
     // 雲量の予報がない場合は不明
     nextPassCloud.textContent =
-        pass.cloudCover === null ? "不明" : `${pass.cloudCover}%`;
+        pass.cloudCover === null ? "予報なし" : `${pass.cloudCover}%`;
 
     // GOから返る判定結果を日本語にする
     const visibilityLabels = {
         good: "良好",
-        fair: "普通",
+        fair: "通常",
         poor: "条件が厳しい",
-        unknown: "判定不能",
+        unknown: "判定不明",
     };
 
     nextPassVisibility.textContent =
-        visibilityLabels[pass.visibility] ?? "判定不能";
+        visibilityLabels[pass.visibility] ?? "判定不明";
 
     nextPassMessage.textContent = pass.message;
 
@@ -324,9 +323,9 @@ function renderPassList(passes) {
 
     const visibilityLabels = {
         good: "良好",
-        fair: "普通",
+        fair: "通常",
         poor: "条件が厳しい",
-        unknown: "判定不能",
+        unknown: "判定不明",
     };
 
     for (const pass of passes) {
@@ -361,7 +360,7 @@ function renderPassList(passes) {
         visibility.className = "visibility-badge";
         visibility.dataset.visibility = pass.visibility;
         visibility.textContent =
-            visibilityLabels[pass.visibility] ?? "判定不能";
+            visibilityLabels[pass.visibility] ?? "判定不明";
 
         // 詳細ボタン
         const detailButton = document.createElement("button");
@@ -412,9 +411,7 @@ function renderPassList(passes) {
                 console.error("通過詳細の取得に失敗しました:", error);
 
                 detailPanel.textContent =
-                    error instanceof Error
-                        ? error.message
-                        : "通過詳細を取得できませんでした。";
+                    "通過詳細を取得できませんでした。通信状況やAPIの起動状態を確認してください。";
             } finally {
                 detailButton.disabled = false;
             }
@@ -478,9 +475,9 @@ function renderPassDetail(container, pass) {
 function renderPassSummary(summary) {
     passesSummary.textContent =
         `良好 ${summary.good}件 ／ ` +
-        `普通 ${summary.fair}件 ／ ` +
+        `通常 ${summary.fair}件 ／ ` +
         `条件が厳しい ${summary.poor}件 ／ ` +
-        `判定不能 ${summary.unknown}件`;
+        `判定不明 ${summary.unknown}件`;
 }
 
 // ページ情報とボタンの状態

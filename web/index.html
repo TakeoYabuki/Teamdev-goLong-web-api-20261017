@@ -27,7 +27,7 @@
                     </p>
                 </div>
 
-                <a class="docs-link glass-card" href="../docs/index.html">
+                <a class="docs-link" href="../docs/index.html">
                     APIドキュメント ↗
                 </a>
             </header>
@@ -77,12 +77,10 @@
                     ISSの位置を取得しています…
                 </p>
 
-                <div class="map-caption">
-                    <p>
-                        背景画像：NASA Earth at Night 2012
-                        （現在の夜の範囲ではありません）
-                    </p>
-                </div>
+                <p class="map-caption">
+                    背景画像：NASA Earth at Night 2012
+                    （現在の夜の範囲ではありません）
+                </p>
             </div>
 
             <!-- 以下のカードは、今後APIと接続する表示の土台 -->
@@ -102,7 +100,7 @@
                     </p>
                     <dl class="pass-metrics">
                         <div>
-                            <dt>通過時間(JST)</dt>
+                            <dt>通過開始時間(JST)</dt>
                             <dd id="next-pass-start">-</dd>
                         </div>
                         <div>
@@ -139,7 +137,7 @@
 
                     <!-- 見やすさ別の件数 -->
                     <p id="passes-summary" class="passes-summary">
-                        良好 —件 ／ 普通 —件 ／ 条件が厳しい —件 ／ 判定不能 —件
+                        良好 —件 ／ 通常 —件 ／ 条件が厳しい —件 ／ 判定不明 —件
                     </p>
 
                     <!-- 絞り込み・並べ替え -->
@@ -149,9 +147,9 @@
                             <select id="visibility-filter">
                                 <option value="">すべて</option>
                                 <option value="good">良好</option>
-                                <option value="fair">普通</option>
+                                <option value="fair">通常</option>
                                 <option value="poor">条件が厳しい</option>
-                                <option value="unknown">判定不能</option>
+                                <option value="unknown">判定不明</option>
                             </select>
                         </label>
 

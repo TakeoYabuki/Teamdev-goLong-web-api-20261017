@@ -289,24 +289,19 @@ select:focus-visible {
 }
 
 .map-caption {
+    margin: 0 0 0 auto;
     margin-left: auto;
     color: var(--muted);
     font-size: 12px;
     text-align: right;
 }
 
-.map-caption p {
-    margin: 0;
-}
 
 /* ==================================================
    6. 地図の下の情報カード
    ================================================== */
 
 .observation-panels {
-    position: relative;
-    isolation: isolate;
-
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px;
@@ -318,6 +313,8 @@ select:focus-visible {
 .glass-card {
     min-width: 0;
     padding: 12px;
+    container-type: inline-size;
+    container-name: observation-card;
 
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-top-color: rgba(255, 255, 255, 0.35);
@@ -383,27 +380,10 @@ select:focus-visible {
     font-size: 12px;
 }
 
-.panel-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-
-    min-height: 170px;
-    padding: 24px 0;
-    text-align: center;
-}
-
-.panel-placeholder > p:first-child {
-    margin: 0;
-    color: var(--muted);
-    font-size: 14px;
-}
-
 /* 次回通過の情報 */
 .pass-metrics {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px 12px;
     margin: 0 0 24px;
 }
@@ -511,13 +491,6 @@ select:focus-visible {
     cursor: not-allowed;
 }
 
-/* カードが狭いときは、操作欄を縦に並べる */
-@container observation-card (max-width: 380px) {
-    .pass-controls {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
 /* 右側 */
 /* 通過一覧の1行 */
 .pass-row {
@@ -614,14 +587,27 @@ select:focus-visible {
 }
 
 /* カードが狭い場合は2列 */
-@container observation-card (max-width: 380px) {
+@container observation-card (max-width: 480px) {
     .pass-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .pass-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pass-detail-button {
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
 }
+
 /* ==================================================
-   7. スマートフォン
+   7. レスポンシブ
    ================================================== */
+@media (max-width: 900px) {
+    .observation-panels {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
 
 @media (max-width: 640px) {
     .app {
@@ -668,16 +654,11 @@ select:focus-visible {
     }
 
     .observation-panels {
-        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
         margin-top: 24px;
     }
 
     .glass-card {
         padding: 20px;
-        border-radius: 8px;
-    }
-    .pass-metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
