@@ -518,6 +518,107 @@ select:focus-visible {
     }
 }
 
+/* 右側 */
+/* 通過一覧の1行 */
+.pass-row {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.2fr)
+        minmax(0, 1.2fr)
+        minmax(0, 0.6fr)
+        minmax(0, 1fr)
+        auto;
+    align-items: center;
+    gap: 10px;
+
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+
+    font-size: 13px;
+}
+
+.pass-row > span {
+    min-width: 0;
+}
+
+.pass-row-direction,
+.pass-row-elevation {
+    color: var(--muted);
+}
+.pass-detail-button {
+    min-height: 44px;
+    padding: 4px 8px;
+
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.pass-detail-button:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.pass-detail-button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.pass-detail {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.pass-detail p {
+    margin: 0 0 6px;
+}
+
+.pass-detail p:last-child {
+    margin-bottom: 0;
+}
+
+/* 見やすさのラベル */
+.visibility-badge {
+    justify-self: start;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.visibility-badge[data-visibility="good"] {
+    background: rgba(126, 217, 168, 0.16);
+    color: #a8e8c2;
+}
+
+.visibility-badge[data-visibility="fair"] {
+    background: rgba(233, 205, 123, 0.16);
+    color: #edda9f;
+}
+
+.visibility-badge[data-visibility="poor"] {
+    background: rgba(227, 158, 158, 0.14);
+    color: #edbaba;
+}
+
+.visibility-badge[data-visibility="unknown"] {
+    background: rgba(180, 192, 210, 0.14);
+    color: #c5cede;
+}
+
+/* カードが狭い場合は2列 */
+@container observation-card (max-width: 380px) {
+    .pass-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 /* ==================================================
    7. スマートフォン
    ================================================== */
