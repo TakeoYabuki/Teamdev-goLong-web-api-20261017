@@ -308,7 +308,7 @@ select:focus-visible {
     isolation: isolate;
 
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px;
 
     margin-top: 32px;
@@ -365,7 +365,7 @@ select:focus-visible {
 
     color: var(--text);
     font-size: clamp(32px, 4vw, 48px);
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
     letter-spacing: 2px;
@@ -398,6 +398,124 @@ select:focus-visible {
     margin: 0;
     color: var(--muted);
     font-size: 14px;
+}
+
+/* 次回通過の情報 */
+.pass-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 18px 12px;
+    margin: 0 0 24px;
+}
+.pass-metrics > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pass-metrics dt {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pass-metrics dd {
+    margin: auto 0 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* 見やすさ別の件数 */
+.passes-summary {
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* 絞り込みと並べ替え */
+.pass-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.pass-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pass-controls select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px;
+
+    border: 1px solid var(--border);
+    border-radius: 5px;
+
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* 通過一覧 */
+.passes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.passes-empty {
+    margin: 0;
+    padding: 32px 0;
+
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+}
+
+/* ページ切り替え */
+.passes-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    margin-top: 20px;
+}
+
+.passes-pagination > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* カードが狭いときは、操作欄を縦に並べる */
+@container observation-card (max-width: 380px) {
+    .pass-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* ==================================================
@@ -456,6 +574,9 @@ select:focus-visible {
 
     .glass-card {
         padding: 20px;
-        border-radius: 20px;
+        border-radius: 8px;
+    }
+    .pass-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
