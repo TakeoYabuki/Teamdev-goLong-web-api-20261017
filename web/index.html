@@ -27,7 +27,7 @@
                     </p>
                 </div>
 
-                <a class="docs-link glass-card" href="../docs/index.html">
+                <a class="docs-link" href="../docs/index.html">
                     APIドキュメント ↗
                 </a>
             </header>
@@ -77,12 +77,10 @@
                     ISSの位置を取得しています…
                 </p>
 
-                <div class="map-caption">
-                    <p>
-                        背景画像：NASA Earth at Night 2012
-                        （現在の夜の範囲ではありません）
-                    </p>
-                </div>
+                <p class="map-caption">
+                    背景画像：NASA Earth at Night 2012
+                    （現在の夜の範囲ではありません）
+                </p>
             </div>
 
             <!-- 以下のカードは、今後APIと接続する表示の土台 -->
@@ -91,13 +89,40 @@
                     <p class="card-eyebrow">NEXT PASS</p>
                     <h2 id="next-pass-title">次のISS観測チャンス</h2>
 
-                    <p class="countdown-placeholder">-- : -- : --</p>
-
-                    <p class="panel-description">
-                        選択した都市での、次回の通過情報を表示します。
-                    </p>
-
                     <p class="connection-note">
+                        表示用の仮データです。実際の通過予測ではありません。
+                    </p>
+                    <p id="next-pass-city" class="panel-description">
+                        観測地点: -
+                    </p>
+                    <p id="next-pass-countdown" class="countdown-placeholder">
+                        -- : -- : --
+                    </p>
+                    <dl class="pass-metrics">
+                        <div>
+                            <dt>通過開始時間(JST)</dt>
+                            <dd id="next-pass-start">-</dd>
+                        </div>
+                        <div>
+                            <dt>方角</dt>
+                            <dd id="next-pass-direction">-</dd>
+                        </div>
+                        <div>
+                            <dt>最大仰角</dt>
+                            <dd id="next-pass-elevation">-</dd>
+                        </div>
+
+                        <div>
+                            <dt>雲量</dt>
+                            <dd id="next-pass-cloud">-</dd>
+                        </div>
+
+                        <div>
+                            <dt>見やすさ</dt>
+                            <dd id="next-pass-visibility">-</dd>
+                        </div>
+                    </dl>
+                    <p id="next-pass-message" class="panel-description">
                         通過情報APIはまだ接続していません。
                     </p>
                 </section>
@@ -106,11 +131,89 @@
                     <p class="card-eyebrow">UPCOMING PASSES</p>
                     <h2 id="passes-title">今後3日間の通過</h2>
 
-                    <div class="panel-placeholder">
-                        <p>ここに通過予定の一覧を表示します。</p>
-                        <p class="connection-note">
+                    <p class="connection-note">
+                        表示確認用の仮データです。実際の通過予測ではありません。
+                    </p>
+
+                    <!-- 見やすさ別の件数 -->
+                    <p id="passes-summary" class="passes-summary">
+                        良好 —件 ／ 通常 —件 ／ 条件が厳しい —件 ／ 判定不明 —件
+                    </p>
+
+                    <!-- 絞り込み・並べ替え -->
+                    <div class="pass-controls">
+                        <label for="visibility-filter">
+                            見やすさ
+                            <select id="visibility-filter">
+                                <option value="">すべて</option>
+                                <option value="good">良好</option>
+                                <option value="fair">通常</option>
+                                <option value="poor">条件が厳しい</option>
+                                <option value="unknown">判定不明</option>
+                            </select>
+                        </label>
+
+                        <label for="elevation-filter">
+                            最大仰角の下限
+                            <select id="elevation-filter">
+                                <option value="0">指定なし</option>
+                                <option value="20">20°以上</option>
+                                <option value="40">40°以上</option>
+                                <option value="60">60°以上</option>
+                            </select>
+                        </label>
+
+                        <label for="passes-sort">
+                            並べ替え
+                            <select id="passes-sort">
+                                <option value="start">日時が早い順</option>
+                                <option value="-start">日時が遅い順</option>
+                                <option value="maxElevation">
+                                    最大仰角が低い順
+                                </option>
+                                <option value="-maxElevation">
+                                    最大仰角が高い順
+                                </option>
+                                <option value="cloudCover">
+                                    雲量が少ない順
+                                </option>
+                                <option value="-cloudCover">
+                                    雲量が多い順
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <!-- JavaScriptで通過一覧を入れる -->
+                    <div id="passes-list" class="passes-list">
+                        <p class="passes-empty">
                             通過情報APIはまだ接続していません。
                         </p>
+                    </div>
+
+                    <!-- ページ切り替え -->
+                    <div class="passes-pagination">
+                        <p id="passes-page-info" role="status">—件</p>
+
+                        <div class="pagination-buttons">
+                            <button
+                                id="passes-prev"
+                                class="button button-secondary"
+                                type="button"
+                                disabled
+                            >
+                                前へ
+                            </button>
+
+                            <button
+                                id="passes-next"
+                                class="button button-secondary"
+                                type="button"
+                                disabled
+                            >
+                                次へ
+                            </button>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -121,5 +224,6 @@
 
         <!-- 自分たちのJavaScript -->
         <script src="app.js"></script>
+        <script src="observations.js"></script>
     </body>
 </html>

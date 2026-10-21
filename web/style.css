@@ -289,26 +289,21 @@ select:focus-visible {
 }
 
 .map-caption {
+    margin: 0 0 0 auto;
     margin-left: auto;
     color: var(--muted);
     font-size: 12px;
     text-align: right;
 }
 
-.map-caption p {
-    margin: 0;
-}
 
 /* ==================================================
    6. 地図の下の情報カード
    ================================================== */
 
 .observation-panels {
-    position: relative;
-    isolation: isolate;
-
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px;
 
     margin-top: 32px;
@@ -318,6 +313,8 @@ select:focus-visible {
 .glass-card {
     min-width: 0;
     padding: 12px;
+    container-type: inline-size;
+    container-name: observation-card;
 
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-top-color: rgba(255, 255, 255, 0.35);
@@ -365,7 +362,7 @@ select:focus-visible {
 
     color: var(--text);
     font-size: clamp(32px, 4vw, 48px);
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
     letter-spacing: 2px;
@@ -383,26 +380,234 @@ select:focus-visible {
     font-size: 12px;
 }
 
-.panel-placeholder {
+/* 次回通過の情報 */
+.pass-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+    margin: 0 0 24px;
+}
+.pass-metrics > div {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    min-width: 0;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
 
-    min-height: 170px;
-    padding: 24px 0;
+.pass-metrics dt {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pass-metrics dd {
+    margin: auto 0 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* 見やすさ別の件数 */
+.passes-summary {
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* 絞り込みと並べ替え */
+.pass-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.pass-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pass-controls select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px;
+
+    border: 1px solid var(--border);
+    border-radius: 5px;
+
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* 通過一覧 */
+.passes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.passes-empty {
+    margin: 0;
+    padding: 32px 0;
+
+    color: var(--muted);
+    font-size: 14px;
     text-align: center;
 }
 
-.panel-placeholder > p:first-child {
+/* ページ切り替え */
+.passes-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    margin-top: 20px;
+}
+
+.passes-pagination > p {
     margin: 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 12px;
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 右側 */
+/* 通過一覧の1行 */
+.pass-row {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.2fr)
+        minmax(0, 1.2fr)
+        minmax(0, 0.6fr)
+        minmax(0, 1fr)
+        auto;
+    align-items: center;
+    gap: 10px;
+
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+
+    font-size: 13px;
+}
+
+.pass-row > span {
+    min-width: 0;
+}
+
+.pass-row-direction,
+.pass-row-elevation {
+    color: var(--muted);
+}
+.pass-detail-button {
+    min-height: 44px;
+    padding: 4px 8px;
+
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.pass-detail-button:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.pass-detail-button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.pass-detail {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.pass-detail p {
+    margin: 0 0 6px;
+}
+
+.pass-detail p:last-child {
+    margin-bottom: 0;
+}
+
+/* 見やすさのラベル */
+.visibility-badge {
+    justify-self: start;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.visibility-badge[data-visibility="good"] {
+    background: rgba(126, 217, 168, 0.16);
+    color: #a8e8c2;
+}
+
+.visibility-badge[data-visibility="fair"] {
+    background: rgba(233, 205, 123, 0.16);
+    color: #edda9f;
+}
+
+.visibility-badge[data-visibility="poor"] {
+    background: rgba(227, 158, 158, 0.14);
+    color: #edbaba;
+}
+
+.visibility-badge[data-visibility="unknown"] {
+    background: rgba(180, 192, 210, 0.14);
+    color: #c5cede;
+}
+
+/* カードが狭い場合は2列 */
+@container observation-card (max-width: 480px) {
+    .pass-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .pass-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pass-detail-button {
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
 }
 
 /* ==================================================
-   7. スマートフォン
+   7. レスポンシブ
    ================================================== */
+@media (max-width: 900px) {
+    .observation-panels {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
 
 @media (max-width: 640px) {
     .app {
@@ -449,13 +654,11 @@ select:focus-visible {
     }
 
     .observation-panels {
-        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
         margin-top: 24px;
     }
 
     .glass-card {
         padding: 20px;
-        border-radius: 20px;
     }
 }
