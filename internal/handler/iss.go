@@ -4,31 +4,34 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-)
+	"time"
 
-// モックデータ作成用のstruct
-type ISSPosition struct {
-	Latitude   float64 `json:"latitude"`
-	Longitude  float64 `json:"longitude"`
-	Altitude   float64 `json:"altitude"`
-	Velocity   float64 `json:"velocity"`
-	PositionAt int64   `json:"positionAt"`
-}
+	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/model"
+)
 
 func IssNowHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
-		http.Error(w, "GETを使用してください", http.StatusMethodNotAllowed)
+		w.Header().Set("Allow", http.MethodGet)
+
+		WriteError(
+			w,
+			http.StatusMethodNotAllowed,
+			model.CodeMethodNotAllowed,
+			"GETを使用してください",
+		)
 		return
 	}
 
 	// Where the ISS at? のモックデータ
-	position := ISSPosition{
-		Latitude:   -14.97657049433,
-		Longitude:  -167.91305342777,
-		Altitude:   420.94118518006,
-		Velocity:   27578.208454235,
-		PositionAt: 1792494475,
+	jst := time.FixedZone("JST", 9*60*60)
+
+	position := model.ISSPosition{
+		Lat:         -14.97657049433,
+		Lon:         -167.91305342777,
+		AltitudeKm:  420.94118518006,
+		VelocityKmh: 27578.208454235,
+		PositionAt:  time.Date(2026, 10, 19, 15, 30, 0, 0, jst),
+		FetchedAt:   time.Date(2026, 10, 19, 15, 30, 5, 0, jst),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
