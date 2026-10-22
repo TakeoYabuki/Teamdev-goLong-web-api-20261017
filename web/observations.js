@@ -581,5 +581,19 @@ passesNext.addEventListener("click", () => {
     refreshPasses();
 });
 
-// 最初の1回
-refreshPasses();
+// 都市の準備が終わってから通過情報を取得する
+locationsReady.then((ready) => {
+    if (ready) {
+        refreshPasses();
+        return;
+    }
+
+    renderNextPass(null);
+
+    nextPassCountdown.textContent = "取得できません";
+    nextPassMessage.textContent =
+        "都市一覧を取得できないため、通過情報を表示できません。";
+
+    passesList.textContent =
+        "都市一覧を取得できないため、通過情報を表示できません。";
+});

@@ -29,6 +29,10 @@ body {
     font-size: 16px;
     line-height: 1.6;
 }
+/* display:flexを使うとhiddenが効かなくなるのを防ぐ */
+[hidden] {
+    display: none !important;
+}
 
 button,
 select {
@@ -231,7 +235,7 @@ select:focus-visible {
 
 #map {
     width: 100%;
-    height: 500px;
+    height: min(500px, 60vh);
 
     border: 1px solid var(--border);
     border-radius: 5px;
@@ -290,9 +294,8 @@ select:focus-visible {
 
 .map-caption {
     margin: 0 0 0 auto;
-    margin-left: auto;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     text-align: right;
 }
 
@@ -312,7 +315,7 @@ select:focus-visible {
 /* グラスモーフィズムはこのカードだけに適用 */
 .glass-card {
     min-width: 0;
-    padding: 12px;
+    padding: 24px;
     container-type: inline-size;
     container-name: observation-card;
 
@@ -377,7 +380,7 @@ select:focus-visible {
 .connection-note {
     margin: 12px 0 0;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 /* 次回通過の情報 */
@@ -398,7 +401,7 @@ select:focus-visible {
 .pass-metrics dt {
     margin-bottom: 8px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .pass-metrics dd {
@@ -411,7 +414,7 @@ select:focus-visible {
 .passes-summary {
     margin: 16px 0;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.8;
 }
 
@@ -430,7 +433,7 @@ select:focus-visible {
     min-width: 0;
 
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .pass-controls select {
@@ -478,7 +481,7 @@ select:focus-visible {
 .passes-pagination > p {
     margin: 0;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .pagination-buttons {
@@ -563,7 +566,7 @@ select:focus-visible {
     justify-self: start;
     padding: 3px 8px;
     border-radius: 5px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .visibility-badge[data-visibility="good"] {
@@ -660,5 +663,13 @@ select:focus-visible {
 
     .glass-card {
         padding: 20px;
+    }
+}
+
+/* 視差効果を設定している人向けにアニメーションをoffにする設定 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
     }
 }

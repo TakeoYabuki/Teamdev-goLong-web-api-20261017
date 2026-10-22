@@ -9,24 +9,24 @@ const NIGHT_TILE_URL =
     "VIIRS_CityLights_2012/default/" +
     "GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 
-// TODO: 都市検索APIから取得するデータに置き換える
-const cities = {
-    tokyo: {
-        name: "東京都心",
-        lat: 35.6812,
-        lon: 139.7671,
-    },
-    osaka: {
-        name: "大阪市",
-        lat: 34.6937,
-        lon: 135.5023,
-    },
-    kagoshima: {
-        name: "鹿児島市",
-        lat: 31.5966,
-        lon: 130.5571,
-    },
-};
+// APIから取得した都市データを入れる
+let cities = {};
+
+// デモアプリで選択できる12都市
+const DEMO_CITY_IDS = [
+    "sapporo",
+    "aomori",
+    "sendai",
+    "tokyo",
+    "niigata",
+    "nagoya",
+    "osaka",
+    "hiroshima",
+    "kochi",
+    "fukuoka",
+    "kagoshima",
+    "naha",
+];
 
 // ==================================================
 // 2. HTML要素とマーカーの管理
@@ -109,7 +109,7 @@ async function fetchIssPosition() {
     // TODO: nowが返す構造
     // const response = await fetch(`${API_BASE_URL}/api/iss/now`);
     // if (!response.ok) {
-    //     throw new Error(`ISSの一取得に失敗しました: HTTP ${response.status}`);
+    //     throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
     // }
 
     // const data = await response.json();
@@ -171,7 +171,7 @@ function updateISSStatus(position) {
         return;
     }
 
-    const formattedTime = positionAt.toLocaleString("ja-jp", {
+    const formattedTime = positionAt.toLocaleString("ja-JP", {
         timeZone: "Asia/Tokyo",
         hour12: false,
     });
@@ -200,11 +200,88 @@ async function refreshISS() {
 }
 
 // ==================================================
+// 都市一覧の取得
+// ==================================================
+
+async function fetchLocations() {
+    const params = new URLSearchParams({
+        limit: "50",
+    });
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/locations/search?${params}`,
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(
+            data.error?.message ?? "都市一覧を取得できませんでした。",
+        );
+    }
+    return data.results;
+}
+
+async function initializeLocations() {
+    citySelect.disabled = true;
+    selectedCity.textContent = "都市一覧を取得しています…";
+
+    try {
+        const locations = await fetchLocations();
+
+        // APIの都市データを、IDで取り出せる形にする
+        for (const location of locations) {
+            cities[location.id] = location;
+        }
+
+        // HTMLに書いていた選択肢を削除する
+        citySelect.replaceChildren();
+
+        // デモで使う都市だけを選択肢に追加する
+        for (const cityId of DEMO_CITY_IDS) {
+            const city = cities[cityId];
+
+            if (!city) continue;
+
+            const option = document.createElement("option");
+            option.value = city.id;
+            option.textContent = city.name;
+
+            citySelect.append(option);
+        }
+
+        if (citySelect.options.length === 0) {
+            throw new Error("選択できる都市がありません");
+        }
+
+        // 初期選択は東京にする
+        if (cities.tokyo && DEMO_CITY_IDS.includes("tokyo")) {
+            citySelect.value = "tokyo";
+        }
+
+        updateSelectedCity();
+        citySelect.disabled = false;
+
+        return true;
+    } catch (error) {
+        console.error("都市一覧の取得に失敗しました", error);
+
+        citySelect.replaceChildren();
+        selectedCity.textContent =
+            "都市一覧を取得できませんでした。APIの起動状態を確認してください。";
+
+        return false;
+    }
+}
+
+// ==================================================
 // 8. 初期表示とイベント登録
 // ==================================================
 
 // 3のmap展開
 const map = createMap();
+
+// 都市一覧の取得と初期表示を開始する
+const locationsReady = initializeLocations();
 
 // 初期表示
 updateSelectedCity();
@@ -221,5 +298,5 @@ async function startISSUpdates() {
     await refreshISS();
     setTimeout(startISSUpdates, 5000); // 5秒おきに繰り返す
 }
-issStatus.textContent = "ISSの位置を取得しています_";
+issStatus.textContent = "ISSの位置を取得しています...";
 startISSUpdates();
