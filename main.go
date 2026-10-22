@@ -20,7 +20,7 @@ func main() {
 
 	log.Println("サーバを起動します: http://localhost:8000")
 
-	if err := http.ListenAndServe(":8000", mux); err != nil {
+	if err := http.ListenAndServe(":8000", handler.WithCORS(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
