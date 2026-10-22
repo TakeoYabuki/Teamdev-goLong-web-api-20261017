@@ -8,6 +8,16 @@ type Location struct {
 	Lon  float64 `json:"lon"`
 }
 
+// 都市検索API専用のレスポンス
+type LocationSearchResponse struct {
+	Query      string           `json:"query"`
+	Results    []Location `json:"results"`
+	Page       int              `json:"page"`
+	Limit      int              `json:"limit"`
+	Total      int              `json:"total"`
+	TotalPages int              `json:"totalPages"`
+}
+
 // Locations は観測地点として使う固定都市データです。
 // 座標は各都市の代表地点です。
 

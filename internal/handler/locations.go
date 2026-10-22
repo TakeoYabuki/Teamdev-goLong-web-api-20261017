@@ -9,16 +9,6 @@ import (
 	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/model"
 )
 
-// 都市検索API専用のレスポンス
-type locationsResponse struct {
-	Query      string           `json:"query"`
-	Results    []model.Location `json:"results"`
-	Page       int              `json:"page"`
-	Limit      int              `json:"limit"`
-	Total      int              `json:"total"`
-	TotalPages int              `json:"totalPages"`
-}
-
 func LocationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
@@ -112,7 +102,7 @@ func LocationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Jsonで返す
-	WriteJSON(w, http.StatusOK, locationsResponse{
+	WriteJSON(w, http.StatusOK, model.LocationSearchResponse{
 		Query:      query,
 		Results:    result,
 		Page:       page,
