@@ -1,12 +1,14 @@
 package handler
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"log"
+	"net"
 	"net/http"
-	"time"
 
 	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/model"
+	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/service"
 )
 
 func IssNowHandler(w http.ResponseWriter, r *http.Request) {
@@ -22,25 +24,37 @@ func IssNowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Where the ISS at? のモックデータ
-	jst := time.FixedZone("JST", 9*60*60)
+	// serviceからISSの現在位置を取得
+	position, err := service.GetISSPosition(r.Context())
+	if err != nil {
+		// ブラウザ側のキャンセルは外部APIのタイムアウトと区別
+		if errors.Is(err, context.Canceled) {
+			return
+		}
 
-	position := model.ISSPosition{
-		Lat:         -14.97657049433,
-		Lon:         -167.91305342777,
-		AltitudeKm:  420.94118518006,
-		VelocityKmh: 27578.208454235,
-		PositionAt:  time.Date(2026, 10, 19, 15, 30, 0, 0, jst),
-		FetchedAt:   time.Date(2026, 10, 19, 15, 30, 5, 0, jst),
+		var netErr net.Error
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+
+			WriteError(
+				w,
+				http.StatusGatewayTimeout,
+				model.CodeUpstreamTimeout,
+				"ISSの位置情報の取得がタイムアウトしました",
+			)
+			return
+		}
+
+		log.Printf("ISS位置情報の取得エラー: %v", err)
+
+		WriteError(
+			w,
+			http.StatusBadGateway,
+			model.CodeUpstreamError,
+			"ISSの位置情報を取得できませんでした",
+		)
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	//JSON形成
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(position); err != nil {
-		log.Printf("JSONエンコードエラー: %v", err)
-	}
+	// 正常時は共通関数でJSONを返す
+	WriteJSON(w, http.StatusOK, position)
 }
