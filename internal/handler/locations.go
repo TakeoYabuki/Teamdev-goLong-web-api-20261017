@@ -23,6 +23,15 @@ func LocationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// クエリパラメータを取得する /api/locations/search?q=鹿児島
 	params := r.URL.Query()
+	if err := checkQuery(params, "q", "page", "limit"); err != nil {
+		WriteError(
+			w,
+			http.StatusBadRequest,
+			model.CodeInvalidParameter,
+			err.Error(),
+		)
+		return
+	}
 	query := strings.TrimSpace(params.Get("q")) // 空白カット
 
 	// qの長さ
