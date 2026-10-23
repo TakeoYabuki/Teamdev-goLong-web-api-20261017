@@ -28,6 +28,9 @@ const DEMO_CITY_IDS = [
     "naha",
 ];
 
+// 移動履歴は直近10分を表示する
+const ISS_HISTORY_DURATION_MS = 10 * 60 * 1000;
+
 // ==================================================
 // 2. HTML要素とマーカーの管理
 // ==================================================
@@ -42,6 +45,9 @@ const showWorldButton = document.getElementById("show-world");
 
 let cityMarker = null; //
 let issMarker = null;
+
+let issHistory = [];
+let issTrail = null; // leafletのpolylineオブジェクト
 
 // ==================================================
 // 3. 地図の作成
@@ -213,6 +219,78 @@ function updateISSStatus(position) {
     issStatus.textContent = `ISSのデータ時刻: ${formattedTime}(日本時間)`;
 }
 
+// 取得した位置を保存し、移動履歴の線を更新する
+function updateISSTrail(position) {
+    const positionTime = new Date(position.positionAt).getTime();
+
+    // データ時刻が不正なら、履歴には追加しない
+    if (!Number.isFinite(positionTime)) {
+        return;
+    }
+
+    // 同じ時刻や、前より古いデータは追加しない
+    const lastPosition = issHistory[issHistory.length - 1];
+
+    if (lastPosition && positionTime <= lastPosition.time) {
+        return;
+    }
+
+    issHistory.push({
+        lat: position.lat,
+        lon: position.lon,
+        time: positionTime,
+    });
+
+    // 最新のデータ時刻から10分より古い位置を削除する
+    const cutoff = positionTime - ISS_HISTORY_DURATION_MS;
+
+    issHistory = issHistory.filter((point) => point.time >= cutoff);
+
+    // 地図の左右の端をまたぐ場合は、線を分ける
+    const segments = [];
+    let segment = [];
+
+    for (const point of issHistory) {
+        const previous = segment[segment.length - 1];
+
+        if (previous && Math.abs(point.lon - previous[1]) > 180) {
+            segments.push(segment);
+            segment = [];
+        }
+
+        segment.push([point.lat, point.lon]);
+    }
+
+    if (segment.length > 0) {
+        segments.push(segment);
+    }
+
+    // 線は最初の1回だけ作成する
+    if (issTrail === null) {
+        issTrail = L.polyline([], {
+            color: "#38d9ff",
+            weight: 3,
+            opacity: 0.3,
+            interactive: false,
+        }).addTo(map);
+
+        // 現在位置のマーカーより後ろに表示する
+        issTrail.bringToBack();
+    }
+    // TODO: 消す モックデータ
+    var latlngs = [
+        [0, 110],
+        [10, 120],
+        [20, 130],
+        [30, 140],
+        [35, 150],
+        [38, 160],
+    ];
+    // 保存した位置で線を更新する
+    // issTrail.setLatLngs(segments); // TODO: 実装したらこっちに変える
+    issTrail.setLatLngs(latlngs); // TODO: 実装したらこっちに変える
+}
+
 // ==================================================
 // 7. 通信と表示をつなぐ処理
 // ==================================================
@@ -223,6 +301,7 @@ async function refreshISS() {
 
         updateISSMarker(position);
         updateISSStatus(position);
+        updateISSTrail(position);
     } catch (error) {
         console.error("ISSの更新に失敗しました", error);
         // ISSを取得できなかった時のエラーハンドリング DOMに表示するほう
