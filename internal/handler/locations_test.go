@@ -77,6 +77,20 @@ func TestLocationHandler(t *testing.T) {
 			wantError:  "INVALID_PARAMETER",
 		},
 		{
+			name:       "知らないパラメータなら400を返す",
+			method:     http.MethodGet,
+			query:      "?city=tokyo",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "INVALID_PARAMETER",
+		},
+		{
+			name:       "同じパラメータが2回なら400を返す",
+			method:     http.MethodGet,
+			query:      "?page=1&page=2",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "INVALID_PARAMETER",
+		},
+		{
 			name:       "POSTなら405を返す",
 			method:     http.MethodPost,
 			wantStatus: http.StatusMethodNotAllowed,
