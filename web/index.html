@@ -40,13 +40,11 @@
                         <label for="city-select">観測する都市</label>
 
                         <select id="city-select">
-                            <option value="tokyo">東京都心</option>
-                            <option value="osaka">大阪市</option>
-                            <option value="kagoshima">鹿児島市</option>
+                            <option value="">都市一覧を取得しています…</option>
                         </select>
                     </div>
 
-                    <p id="selected-city">観測地点：東京都心</p>
+                    <p id="selected-city">都市一覧を取得しています…</p>
                 </div>
 
                 <!-- 右：地図の表示を切り替えるボタン -->
@@ -222,7 +220,7 @@
         <!-- Leafletを先に読み込む -->
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        <!-- 自分たちのJavaScript -->
+        <!-- 読み込み順を変えないこと：observations.js は app.js の定義を使う -->
         <script src="app.js"></script>
         <script src="observations.js"></script>
     </body>
