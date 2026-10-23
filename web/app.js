@@ -277,18 +277,18 @@ function updateISSTrail(position) {
         // 現在位置のマーカーより後ろに表示する
         issTrail.bringToBack();
     }
-    // TODO: 消す モックデータ
-    var latlngs = [
-        [0, 110],
-        [10, 120],
-        [20, 130],
-        [30, 140],
-        [35, 150],
-        [38, 160],
-    ];
+    // // TODO: 消す モックデータ
+    // var latlngs = [
+    //     [0, 110],
+    //     [10, 120],
+    //     [20, 130],
+    //     [30, 140],
+    //     [35, 150],
+    //     [38, 160],
+    // ];
     // 保存した位置で線を更新する
-    // issTrail.setLatLngs(segments); // TODO: 実装したらこっちに変える
-    issTrail.setLatLngs(latlngs); // TODO: 実装したらこっちに変える
+    issTrail.setLatLngs(segments); // TODO: 実装したらこっちに変える
+    // issTrail.setLatLngs(latlngs); // TODO: 実装したらこっちに変える
 }
 
 // ==================================================
