@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	//hanlderフォルダ内の関数呼び出し用。
 	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/handler"
@@ -17,10 +18,16 @@ func main() {
 	mux.HandleFunc("/api/iss/now", handler.IssNowHandler)
 	//internal/handler/locations.goへのルーティン
 	mux.HandleFunc("/api/locations/search", handler.LocationHandler)
+	mux.HandleFunc("/", handler.NotFoundHandler)
 
-	log.Println("サーバを起動します: http://localhost:8000")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
 
-	if err := http.ListenAndServe(":8000", handler.WithCORS(mux)); err != nil {
+	log.Println("サーバを起動します: http://localhost:" + port)
+
+	if err := http.ListenAndServe(":"+port, handler.WithCORS(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
