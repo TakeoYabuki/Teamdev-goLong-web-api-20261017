@@ -107,34 +107,26 @@ function updateSelectedCity() {
 // 非同期 ISSの位置をapiから取ってくる
 async function fetchIssPosition() {
     // TODO: nowが返す構造
-    // const response = await fetch(`${API_BASE_URL}/api/iss/now`);
-    // if (!response.ok) {
-    //     throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
-    // }
+    const response = await fetch(`${API_BASE_URL}/api/iss/now`);
+    if (!response.ok) {
+        throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
+    }
 
-    // const data = await response.json();
+    const data = await response.json();
 
-    // // データがおかしいときのエラーハンドリング。
-    // if (
-    //     !Number.isFinite(data.lat) ||
-    //     !Number.isFinite(data.lon) ||
-    //     data.lat < -90 ||
-    //     data.lat > 90 ||
-    //     data.lon < -180 ||
-    //     data.lon > 180
-    // ) {
-    //     throw new Error("ISSの位置データが不正です");
-    // }
+    // データがおかしいときのエラーハンドリング。
+    if (
+        !Number.isFinite(data.lat) ||
+        !Number.isFinite(data.lon) ||
+        data.lat < -90 ||
+        data.lat > 90 ||
+        data.lon < -180 ||
+        data.lon > 180
+    ) {
+        throw new Error("ISSの位置データが不正です");
+    }
 
-    // return data; // TODO: API完成したらこっちに変える
-    return {
-        lat: -30,
-        lon: 40,
-        altitudeKm: 420.5,
-        velocityKmh: 27580.2,
-        positionAt: new Date().toISOString(),
-        fetchedAt: new Date().toISOString(),
-    };
+    return data; // TODO: API完成したらこっちに変える
 }
 
 // ==================================================
@@ -284,7 +276,7 @@ const map = createMap();
 const locationsReady = initializeLocations();
 
 // 初期表示
-updateSelectedCity();
+// updateSelectedCity();
 
 // 都市の選択
 citySelect.addEventListener("change", updateSelectedCity);
