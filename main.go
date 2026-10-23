@@ -15,6 +15,8 @@ func main() {
 	mux.HandleFunc("/api/health", handler.HealthHandler)
 	//internal/handler/iss.goへのルーティン
 	mux.HandleFunc("/api/iss/now", handler.IssNowHandler)
+	//internal/handler/locations.goへのルーティン
+	mux.HandleFunc("/api/locations/search", handler.LocationHandler)
 
 	log.Println("サーバを起動します: http://localhost:8000")
 
