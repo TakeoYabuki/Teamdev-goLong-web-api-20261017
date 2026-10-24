@@ -63,6 +63,49 @@ function createMap() {
     return map;
 }
 
+// 仰角10度以上の通過があり得る緯度範囲の目安
+// ISS高度約420kmを仮定した概算
+function addObservationGuides(map) {
+    const guides = [64, -64].map((latitude) => {
+        const label = latitude > 0 ? "北緯約64度" : "南緯約64度";
+
+        const line = L.polyline([], {
+            color: "#6e8c90",
+            weight: 1.5,
+            opacity: 0.5,
+            dashArray: "1, 5",
+            lineCap: "round",
+        })
+            .addTo(map)
+            .bindTooltip(
+                `${label}：仰角10度以上の通過範囲の目安`,
+            );
+
+        return { latitude, line };
+    });
+
+    function updateGuideLines() {
+        const bounds = map.getBounds();
+
+        // 地図の左右端より少し外まで線を伸ばす
+        const west = bounds.getWest() - 10;
+        const east = bounds.getEast() + 10;
+
+        for (const { latitude, line } of guides) {
+            line.setLatLngs([
+                [latitude, west],
+                [latitude, east],
+            ]);
+        }
+    }
+
+    // 初期表示
+    updateGuideLines();
+
+    // 移動・ズーム・表示サイズの変更に合わせて更新
+    map.on("moveend resize", updateGuideLines);
+}
+
 // 選択中の都市へ移動
 function focusSelectedCity() {
     const city = cities[citySelect.value];
@@ -271,6 +314,7 @@ async function initializeLocations() {
 
 // 3のmap展開
 const map = createMap();
+addObservationGuides(map);
 
 // 都市一覧の取得と初期表示を開始する
 const locationsReady = initializeLocations();
