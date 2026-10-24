@@ -1,0 +1,267 @@
+openapi: 3.0.3
+
+info:
+    title: Space now API
+    description: |
+        ISSの現在位置と都市別の通過予測を提供するAPI
+
+        ## 共通仕様
+        - 正常・エラーともに Content-Type は application/json
+        - 日時は日本時間の RFC 3339 形式（例：2026-10-19T18:42:10+09:00）
+        - メソッドは GET のみ。GET 以外は 405（Allow: GET を付与）
+        - 定義されていないパスは 404（NOT_FOUND）
+        - 開発用に Access-Control-Allow-Origin: * を付与
+        - エラーはすべて ErrorResponse の形式で返す
+
+        TODO（担当: B）：エラーコードの一覧、CORS、キャッシュの方針を追記する
+    version: 1.0.0
+
+servers:
+    - url: http://localhost:8000
+
+tags:
+    - name: ISS
+      description: ISSの現在位置と通過予測
+    - name: 都市
+      description: 固定都市検索マスターの検索
+    - name: システム
+      description: 動作確認用
+
+paths:
+    /api/health:
+        get:
+            tag: [システム]
+            x-owner: B
+            summary: サーバの起動確認
+            description: TODO
+            responses:
+                "200":
+                    description: 正常に動作しています
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - status
+                                properties:
+                                    status:
+                                        type: string
+                                        example: OK
+    # -----------------------------------
+    /api/iss/now:
+        get:
+            tags: [ISS]
+            x-owner: A
+            summary: ISSの現在位置とデータ時刻
+            description: TODO
+            responses:
+                "200":
+                    description:
+                    content:
+                        application/json:
+                            schema:
+
+    # -----------------------------------
+    /api/iss/passes:
+        get:
+            tags: [ISS]
+            x-owner: A （雲量の照合と判定の説明は B）
+            summary:
+            description: TODO
+            responses:
+                "200":
+                    description:
+                    content:
+                        application/json:
+                            schema:
+    # -----------------------------------
+    /api/iss/passes{id}:
+        get:
+            tags: [ISS]
+            x-owner: A
+            summary: 通過1件の詳細と判定理由
+            description: TODO（スナップショットの保持期間、404になる条件）
+            parameters:
+
+            responses:
+                "200":
+                    description:
+                    content:
+                        application/json:
+                            schema:
+    # -----------------------------------
+    /api/locations/search:
+        get:
+            tags: [都市]
+            x-owner: C
+            summary: 固定都市の検索・一覧
+            description: |
+                固定都市マスターを表示名の部分一致で検索します。
+                qを省略すると、すべての都市をページ分けして返します。
+                並び順は都市マスターの登録順です。
+                該当なし・範囲外ページでは200と空配列を返します。
+                未知のパラメータ名・同じパラメータの重複指定・空文字は400です。
+            parameters:
+                - name: q
+                  in: query
+                  required: false
+                  description: |
+                    検索する都市名。
+                    前後の空白を除いて1〜50文字で指定します。
+                    空文字・空白のみは指定できません。
+                    省略した場合は、すべての都市を検索対象にします。
+                  schema: 
+                    type: string
+                  example: 鹿児島
+
+                - name: page
+                  in: query
+                  required: false
+                  description: ページ番号。省略時は1です。
+                  schema:
+                      type: integer
+                      minimum: 1
+                      default: 1
+
+                - name: limit
+                  in: query
+                  required: false
+                  description: 1ページの取得件数。省略時は10です。
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 50
+                      default: 10
+            responses:
+                "200":
+                    description: 検索結果
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/LocationSearchResponse"
+                            example: 
+                              query: 鹿児島
+                              results:
+                                  - id: kagoshima
+                                    name: 鹿児島市
+                                    lat: 31.5966
+                                    lon: 130.5571
+                              page: 1
+                              limit: 10
+                              total: 1
+                              totalPages: 1
+                "400":
+                    description: パラメータが不正
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            example:
+                                error:
+                                    code: INVALID_PARAMETER
+                                    message: pageは1以上の整数で指定してください
+
+                "405":
+                    description: GET以外のメソッドは使用できません
+                    headers:
+                        Allow:
+                            schema:
+                                type: string
+                                example: GET
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            example:
+                                error:
+                                    code: METHOD_NOT_ALLOWED
+                                    message: GETを使用してください
+
+                "500":
+                    description: 想定外の内部エラー
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            example:
+                                error:
+                                    code: INTERNAL_ERROR
+                                    message: 内部エラーが発生しました
+
+# ==================================================
+# 共通の部品
+# ==================================================
+components:
+    schemas:
+        Location:
+            type: object
+            required:
+                - id
+                - name
+                - lat
+                - lon
+            properties:
+                id:
+                    type: string
+                    description: 都市ID
+                    example: kagoshima
+                name:
+                    type: string
+                    description: 都市の表示名
+                    example: 鹿児島市
+                lat:
+                    type: number
+                    format: double
+                    description: 代表地点の緯度（度）
+                lon:
+                    type: number
+                    format: double
+                    description: 代表地点の経度（度）
+        LocationSearchResponse:
+            type: object
+            required:
+                - query
+                - results
+                - page
+                - limit
+                - total
+                - totalPages
+            properties:
+                query:
+                    type: string
+                    description: 前後の空白を除去した検索語。省略時は空文字
+                results:
+                    type: array
+                    description: 指定ページの都市一覧。該当なしの場合は空配列
+                    items:
+                        $ref: "#/components/schemas/Location"
+                page:
+                    type: integer
+                    description: リクエストされたページ番号
+                limit:
+                    type: integer
+                    description: 1ページの取得件数
+                total:
+                    type: integer
+                    description: 検索に一致した都市の総件数
+                totalPages:
+                    type: integer
+                    description: 総ページ数。検索結果が0件なら0
+        ErrorResponse:
+            type: object
+            required:
+                - error
+            properties:
+                error:
+                    type: object
+                    required:
+                        - code
+                        - message
+                    properties:
+                        code:
+                            type: string
+                            description: エラーコード
+                        message:
+                            type: string
+                            description: エラーの説明
+
