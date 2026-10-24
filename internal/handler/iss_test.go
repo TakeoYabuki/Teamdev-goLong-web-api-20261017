@@ -1,12 +1,14 @@
-package handler_test
+package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/handler"
+	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/model"
 )
 
 func TestIssNowHandler_Post(t *testing.T) {
@@ -21,7 +23,7 @@ func TestIssNowHandler_Post(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// テスト対象のhandlerを実行
-	handler.IssNowHandler(rec, req)
+	IssNowHandler(rec, req)
 
 	// HTTPステータスコードを確認
 	if rec.Code != http.StatusMethodNotAllowed {
@@ -61,6 +63,16 @@ func TestIssNowHandler_Post(t *testing.T) {
 }
 
 func TestIssNowHandler_Get(t *testing.T) {
+	//テスト用の関数を定義
+	fakeGetPosition := func(ctx context.Context) (*model.ISSPosition, error) {
+		return &model.ISSPosition{
+			Lat:         35.0,
+			Lon:         139.0,
+			AltitudeKm:  420.0,
+			VelocityKmh: 27500.0,
+		}, nil
+	}
+
 	// GETリクエストを作成
 	req := httptest.NewRequest(
 		http.MethodGet,
@@ -71,8 +83,8 @@ func TestIssNowHandler_Get(t *testing.T) {
 	// レスポンスを記録
 	rec := httptest.NewRecorder()
 
-	// ハンドラーを実行
-	handler.IssNowHandler(rec, req)
+	// テスト用の関数を渡す
+	issNowHandler(rec, req, fakeGetPosition)
 
 	// HTTP 200が返るか確認
 	if rec.Code != http.StatusOK {
@@ -110,5 +122,21 @@ func TestIssNowHandler_Get(t *testing.T) {
 
 	if position.VelocityKmh <= 0 {
 		t.Errorf("速度が不正です: %f", position.VelocityKmh)
+	}
+}
+
+// 外部API取得エラー発生時502を返すか
+func TestIssNowHandler_UpstreamError(t *testing.T) {
+	fakeGetPosition := func(ctx context.Context) (*model.ISSPosition, error) {
+		return nil, errors.New("外部APIのレスポンスが不正です")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/iss/now", nil)
+	rec := httptest.NewRecorder()
+
+	issNowHandler(rec, req, fakeGetPosition)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("期待するステータス: 502、実際: %d", rec.Code)
 	}
 }

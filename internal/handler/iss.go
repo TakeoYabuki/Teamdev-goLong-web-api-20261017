@@ -11,7 +11,16 @@ import (
 	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/service"
 )
 
+// 本番用の呼び出し関数
 func IssNowHandler(w http.ResponseWriter, r *http.Request) {
+	issNowHandler(w, r, service.GetISSPosition)
+}
+
+func issNowHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	getPosition func(context.Context) (*model.ISSPosition, error),
+) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 
@@ -25,7 +34,8 @@ func IssNowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// serviceからISSの現在位置を取得
-	position, err := service.GetISSPosition(r.Context())
+	position, err := getPosition(r.Context())
+
 	if err != nil {
 		// ブラウザ側のキャンセルは外部APIのタイムアウトと区別
 		if errors.Is(err, context.Canceled) {

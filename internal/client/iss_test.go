@@ -2,13 +2,14 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
+// 外部ISS APIの代わりになるテスト用サーバー
 func TestFetchISSPosition(t *testing.T) {
-	// 外部ISS APIの代わりになるテスト用サーバー
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -48,8 +49,8 @@ func TestFetchISSPosition(t *testing.T) {
 	}
 }
 
+// HTTP 500を返すテスト用サーバー
 func TestFetchISSPosition_ServerError(t *testing.T) {
-	// HTTP 500を返すテスト用サーバー
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -74,8 +75,8 @@ func TestFetchISSPosition_ServerError(t *testing.T) {
 	}
 }
 
+// 不正なJSONを返すテスト用サーバー
 func TestFetchISSPosition_InvalidJSON(t *testing.T) {
-	// 不正なJSONを返すテスト用サーバー
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -97,5 +98,30 @@ func TestFetchISSPosition_InvalidJSON(t *testing.T) {
 	// エラー時は位置情報が返らないことを確認
 	if position != nil {
 		t.Errorf("nilを期待しましたが、実際は%v", position)
+	}
+}
+
+// 外部APIの代わりに空のJSONを返すサーバー
+func TestFetchISSPosition_MissingFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{}`)
+		},
+	))
+	defer server.Close()
+
+	// テスト用サーバーからISS位置情報を取得
+	position, err := fetchISSPosition(context.Background(), server.URL)
+
+	// 必須項目が欠損しているため、エラーになることを確認
+	if err == nil {
+		t.Fatal("必須項目が欠損しているのにエラーが返されませんでした")
+	}
+
+	// 正常な位置情報が返されていないことを確認
+	if position != nil {
+		t.Errorf("positionはnilを期待しましたが、実際: %+v", position)
 	}
 }

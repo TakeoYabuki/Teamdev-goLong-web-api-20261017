@@ -12,11 +12,11 @@ import (
 
 // 外部APIのJSONを受け取るための構造体
 type issAPIResponse struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Altitude  float64 `json:"altitude"`
-	Velocity  float64 `json:"velocity"`
-	Timestamp int64   `json:"timestamp"`
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+	Altitude  *float64 `json:"altitude"`
+	Velocity  *float64 `json:"velocity"`
+	Timestamp *int64   `json:"timestamp"`
 }
 
 // 本番用の入口
@@ -65,14 +65,31 @@ func fetchISSPosition(ctx context.Context, url string) (*model.ISSPosition, erro
 		return nil, err
 	}
 
+	// 必須項目が欠損していないか確認
+	if data.Latitude == nil ||
+		data.Longitude == nil ||
+		data.Altitude == nil ||
+		data.Velocity == nil ||
+		data.Timestamp == nil {
+		return nil, fmt.Errorf("ISS外部APIのレスポンスに必須項目がありません")
+	}
+
+	// timestampの値が有効か確認
+	if *data.Timestamp <= 0 {
+		return nil, fmt.Errorf("ISS外部APIのtimestampが不正です")
+	}
+
+	//日本時間に設定
+	jst := time.FixedZone("JST", 9*60*60)
+
 	// modelの構造体に変換
 	position := model.ISSPosition{
-		Lat:         data.Latitude,
-		Lon:         data.Longitude,
-		AltitudeKm:  data.Altitude,
-		VelocityKmh: data.Velocity,
-		PositionAt:  time.Unix(data.Timestamp, 0),
-		FetchedAt:   time.Now().Truncate(time.Second),
+		Lat:         *data.Latitude,
+		Lon:         *data.Longitude,
+		AltitudeKm:  *data.Altitude,
+		VelocityKmh: *data.Velocity,
+		PositionAt:  time.Unix(*data.Timestamp, 0).In(jst),
+		FetchedAt:   time.Now().In(jst).Truncate(time.Second),
 	}
 
 	return &position, nil
