@@ -28,8 +28,8 @@ const DEMO_CITY_IDS = [
     "naha",
 ];
 
-// 移動履歴は直近10分を表示する
-const ISS_HISTORY_DURATION_MS = 10 * 60 * 1000;
+// 移動履歴は直近40分を表示する
+const ISS_HISTORY_DURATION_MS = 40 * 60 * 1000;
 
 // ==================================================
 // 2. HTML要素とマーカーの管理
@@ -83,9 +83,7 @@ function addObservationGuides(map) {
             lineCap: "round",
         })
             .addTo(map)
-            .bindTooltip(
-                `${label}：仰角10度以上の通過範囲の目安`,
-            );
+            .bindTooltip(`${label}：仰角10度以上の通過範囲の目安`);
 
         return { latitude, line };
     });
@@ -241,7 +239,7 @@ function updateISSTrail(position) {
         time: positionTime,
     });
 
-    // 最新のデータ時刻から10分より古い位置を削除する
+    // 設定した保持期間より古い位置を削除する
     const cutoff = positionTime - ISS_HISTORY_DURATION_MS;
 
     issHistory = issHistory.filter((point) => point.time >= cutoff);
@@ -277,18 +275,8 @@ function updateISSTrail(position) {
         // 現在位置のマーカーより後ろに表示する
         issTrail.bringToBack();
     }
-    // // TODO: 消す モックデータ
-    // var latlngs = [
-    //     [0, 110],
-    //     [10, 120],
-    //     [20, 130],
-    //     [30, 140],
-    //     [35, 150],
-    //     [38, 160],
-    // ];
     // 保存した位置で線を更新する
-    issTrail.setLatLngs(segments); // TODO: 実装したらこっちに変える
-    // issTrail.setLatLngs(latlngs); // TODO: 実装したらこっちに変える
+    issTrail.setLatLngs(segments);
 }
 
 // ==================================================
