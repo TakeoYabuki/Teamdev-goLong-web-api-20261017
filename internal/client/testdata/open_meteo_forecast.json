@@ -1,0 +1,10 @@
+{
+  "latitude": 35.7,
+  "longitude": 139.75,
+  "timezone": "GMT",
+  "hourly_units": { "time": "unixtime", "cloud_cover": "%" },
+  "hourly": {
+    "time": [1792807200, 1792810800, 1792814400, 1792818000],
+    "cloud_cover": [20, null, 120, 85]
+  }
+}
