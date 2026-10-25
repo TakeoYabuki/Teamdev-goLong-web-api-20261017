@@ -149,7 +149,6 @@ function updateSelectedCity() {
 
 // 非同期 ISSの位置をapiから取ってくる
 async function fetchIssPosition() {
-    // TODO: nowが返す構造
     const response = await fetch(`${API_BASE_URL}/api/iss/now`);
     if (!response.ok) {
         throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
@@ -169,7 +168,7 @@ async function fetchIssPosition() {
         throw new Error("ISSの位置データが不正です");
     }
 
-    return data; // TODO: API完成したらこっちに変える
+    return data;
 }
 
 // ==================================================

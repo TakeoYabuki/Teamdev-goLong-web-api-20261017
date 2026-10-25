@@ -1,7 +1,7 @@
 // ==================================================
 // 1. HTML要素の取得
 // ==================================================
-
+//左側 次回通過の要素取得
 const nextPassCity = document.getElementById("next-pass-city");
 const nextPassCountdown = document.getElementById("next-pass-countdown");
 const nextPassStart = document.getElementById("next-pass-start");
@@ -32,7 +32,7 @@ let countdownTimer = null;
 // ==================================================
 // 2. 通過情報の取得（現在はモック）
 // ==================================================
-// GET /api/iss/passesを呼ぶ cityIDにはtokyoとかが入る
+// TODO: GET /api/iss/passesを呼ぶ cityIDにはtokyoとかが入る
 async function fetchISSPasses(cityId, options = {}) {
     const {
         visibility = "",
@@ -171,7 +171,7 @@ async function fetchISSPasses(cityId, options = {}) {
 }
 
 // ==================================================
-// 通過1件の詳細を取得
+// 通過1件の詳細を取得 /api/iss/passes/{id}
 // ==================================================
 
 async function fetchISSPassDetail(cityId, passId) {
