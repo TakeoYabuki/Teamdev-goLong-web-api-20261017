@@ -45,8 +45,11 @@ func TestMatchCloudCover(t *testing.T) {
 			gotCloud, gotWeatherAt := matchCloudCover(hours, tt.maxTime)
 
 			if tt.wantCloud == nil {
-				if gotCloud != nil || gotWeatherAt != nil {
-					t.Errorf("不明のはずが、雲量 %v・時刻 %v が返りました", *gotCloud, *gotWeatherAt)
+				if gotCloud != nil {
+					t.Errorf("不明のはずが、雲量 %v が返りました", *gotCloud)
+				}
+				if gotWeatherAt != nil {
+					t.Errorf("不明のはずが、予報の時刻 %v が返りました", *gotWeatherAt)
 				}
 				return
 			}
