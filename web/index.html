@@ -45,6 +45,9 @@
                     </div>
 
                     <p id="selected-city">都市一覧を取得しています…</p>
+                    <p id="iss-status" class="status" role="status">
+                        ISSの位置を取得しています…
+                    </p>
                 </div>
 
                 <!-- 右：地図の表示を切り替えるボタン -->
@@ -71,8 +74,12 @@
             <div id="map" aria-label="ISSの現在位置と観測地点の地図"></div>
 
             <div class="map-footer">
-                <p id="iss-status" class="status" role="status">
-                    ISSの位置を取得しています…
+                <p class="map-trail-note">
+                    <span class="trail-swatch" aria-hidden="true"></span>
+                    <span>
+                        移動履歴：ページを開いてから取得した直近40分の位置。
+                        再読み込みでリセットされます。
+                    </span>
                 </p>
 
                 <p class="map-caption">

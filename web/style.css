@@ -19,7 +19,6 @@
 
 body {
     margin: 0;
-    padding-bottom: 0;
     position: relative;
     isolation: isolate;
     background: var(--bg);
@@ -69,7 +68,7 @@ body {
 body::before {
     content: "";
     position: absolute;
-    bottom: -200px;
+    bottom: 0;
     right: 0;
 
     width: 100%;
@@ -333,11 +332,10 @@ select:focus-visible {
 }
 
 .map-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px 32px;
     margin-top: 12px;
 }
 
@@ -347,10 +345,27 @@ select:focus-visible {
     font-size: 13px;
 }
 
-.map-caption {
-    margin: 0 0 0 auto;
+.map-trail-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+
+    margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 11px;
+}
+/* 地図上の移動履歴に対応する小さな線 */
+.trail-swatch {
+    flex: 0 0 20px;
+    margin-top: 0.75em;
+    border-top: 2px solid #38d9ff;
+    opacity: 0.6;
+}
+
+.map-footer .map-caption {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
     text-align: right;
 }
 
@@ -584,7 +599,6 @@ select:focus-visible {
     background: transparent;
 
     color: var(--accent);
-    font: inherit;
     cursor: pointer;
 }
 
@@ -661,11 +675,17 @@ select:focus-visible {
    フッター
    ================================================== */
 
+.site-footer {
+    /* 背景画像を見せるスペース */
+    padding-top: clamp(80px, 15vw, 200px);
+
+    /* 文字とページ下端の間隔 */
+    padding-bottom: 24px;
+}
+
 .footer-inner {
     width: min(1200px, calc(100% - 64px));
     margin: 0 auto;
-    /* padding: 240px 0 24px; */
-
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -714,6 +734,14 @@ select:focus-visible {
 @media (max-width: 900px) {
     .observation-panels {
         grid-template-columns: minmax(0, 1fr);
+    }
+    .map-footer {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .map-footer .map-caption {
+        text-align: left;
     }
 }
 
@@ -771,8 +799,8 @@ select:focus-visible {
     }
 
     .footer-inner {
-    width: calc(100% - 32px);
-    }   
+        width: calc(100% - 32px);
+    }
 }
 
 /* 視差効果を設定している人向けにアニメーションをoffにする設定 */
