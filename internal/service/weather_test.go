@@ -69,3 +69,36 @@ func TestMatchCloudCoverWithoutForecast(t *testing.T) {
 		t.Error("予報がないときは不明のはずです")
 	}
 }
+
+// 予報のデータが上書きされてないかの追加テスト
+func TestMatchCloudCoverDoesNotModifyOriginal(t *testing.T) {
+	originalCloud := 40.0
+	originalTime := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
+
+	hours := []model.HourlyCloud{
+		{
+			Time:       originalTime,
+			CloudCover: &originalCloud,
+		},
+	}
+
+	// 予報データを取得
+	gotCloud, gotWeatherAt := matchCloudCover(hours, originalTime)
+
+	if gotCloud == nil || gotWeatherAt == nil {
+		t.Fatal("雲量と予報時刻が取得できませんでした")
+	}
+
+	// 戻り値を変更する
+	*gotCloud = 80.0
+	*gotWeatherAt = gotWeatherAt.Add(time.Hour)
+
+	// 元のデータが変更されていないか確認
+	if *hours[0].CloudCover != 40.0 {
+		t.Errorf("元の雲量が変更されました: %v", *hours[0].CloudCover)
+	}
+
+	if !hours[0].Time.Equal(originalTime) {
+		t.Errorf("元の予報時刻が変更されました: %v", hours[0].Time)
+	}
+}
