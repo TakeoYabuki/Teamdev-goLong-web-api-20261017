@@ -28,6 +28,9 @@ const DEMO_CITY_IDS = [
     "naha",
 ];
 
+// 移動履歴は直近40分を表示する
+const ISS_HISTORY_DURATION_MS = 40 * 60 * 1000;
+
 // ==================================================
 // 2. HTML要素とマーカーの管理
 // ==================================================
@@ -42,6 +45,9 @@ const showWorldButton = document.getElementById("show-world");
 
 let cityMarker = null; //
 let issMarker = null;
+
+let issHistory = [];
+let issTrail = null; // leafletのpolylineオブジェクト
 
 // ==================================================
 // 3. 地図の作成
@@ -61,6 +67,47 @@ function createMap() {
     }).addTo(map);
 
     return map;
+}
+
+// 仰角10度以上の通過があり得る緯度範囲の目安
+// ISS高度約420kmを仮定した概算
+function addObservationGuides(map) {
+    const guides = [64, -64].map((latitude) => {
+        const label = latitude > 0 ? "北緯約64度" : "南緯約64度";
+
+        const line = L.polyline([], {
+            color: "#6e8c90",
+            weight: 1.5,
+            opacity: 0.5,
+            dashArray: "1, 5",
+            lineCap: "round",
+        })
+            .addTo(map)
+            .bindTooltip(`${label}：仰角10度以上の通過範囲の目安`);
+
+        return { latitude, line };
+    });
+
+    function updateGuideLines() {
+        const bounds = map.getBounds();
+
+        // 地図の左右端より少し外まで線を伸ばす
+        const west = bounds.getWest() - 10;
+        const east = bounds.getEast() + 10;
+
+        for (const { latitude, line } of guides) {
+            line.setLatLngs([
+                [latitude, west],
+                [latitude, east],
+            ]);
+        }
+    }
+
+    // 初期表示
+    updateGuideLines();
+
+    // 移動・ズーム・表示サイズの変更に合わせて更新
+    map.on("moveend resize", updateGuideLines);
 }
 
 // 選択中の都市へ移動
@@ -106,35 +153,26 @@ function updateSelectedCity() {
 
 // 非同期 ISSの位置をapiから取ってくる
 async function fetchIssPosition() {
-    // TODO: nowが返す構造
-    // const response = await fetch(`${API_BASE_URL}/api/iss/now`);
-    // if (!response.ok) {
-    //     throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
-    // }
+    const response = await fetch(`${API_BASE_URL}/api/iss/now`);
+    if (!response.ok) {
+        throw new Error(`ISSの位置取得に失敗しました: HTTP ${response.status}`);
+    }
 
-    // const data = await response.json();
+    const data = await response.json();
 
-    // // データがおかしいときのエラーハンドリング。
-    // if (
-    //     !Number.isFinite(data.lat) ||
-    //     !Number.isFinite(data.lon) ||
-    //     data.lat < -90 ||
-    //     data.lat > 90 ||
-    //     data.lon < -180 ||
-    //     data.lon > 180
-    // ) {
-    //     throw new Error("ISSの位置データが不正です");
-    // }
+    // データがおかしいときのエラーハンドリング。
+    if (
+        !Number.isFinite(data.lat) ||
+        !Number.isFinite(data.lon) ||
+        data.lat < -90 ||
+        data.lat > 90 ||
+        data.lon < -180 ||
+        data.lon > 180
+    ) {
+        throw new Error("ISSの位置データが不正です");
+    }
 
-    // return data; // TODO: API完成したらこっちに変える
-    return {
-        lat: -30,
-        lon: 40,
-        altitudeKm: 420.5,
-        velocityKmh: 27580.2,
-        positionAt: new Date().toISOString(),
-        fetchedAt: new Date().toISOString(),
-    };
+    return data;
 }
 
 // ==================================================
@@ -179,6 +217,68 @@ function updateISSStatus(position) {
     issStatus.textContent = `ISSのデータ時刻: ${formattedTime}(日本時間)`;
 }
 
+// 取得した位置を保存し、移動履歴の線を更新する
+function updateISSTrail(position) {
+    const positionTime = new Date(position.positionAt).getTime();
+
+    // データ時刻が不正なら、履歴には追加しない
+    if (!Number.isFinite(positionTime)) {
+        return;
+    }
+
+    // 同じ時刻や、前より古いデータは追加しない
+    const lastPosition = issHistory[issHistory.length - 1];
+
+    if (lastPosition && positionTime <= lastPosition.time) {
+        return;
+    }
+
+    issHistory.push({
+        lat: position.lat,
+        lon: position.lon,
+        time: positionTime,
+    });
+
+    // 設定した保持期間より古い位置を削除する
+    const cutoff = positionTime - ISS_HISTORY_DURATION_MS;
+
+    issHistory = issHistory.filter((point) => point.time >= cutoff);
+
+    // 地図の左右の端をまたぐ場合は、線を分ける
+    const segments = [];
+    let segment = [];
+
+    for (const point of issHistory) {
+        const previous = segment[segment.length - 1];
+
+        if (previous && Math.abs(point.lon - previous[1]) > 180) {
+            segments.push(segment);
+            segment = [];
+        }
+
+        segment.push([point.lat, point.lon]);
+    }
+
+    if (segment.length > 0) {
+        segments.push(segment);
+    }
+
+    // 線は最初の1回だけ作成する
+    if (issTrail === null) {
+        issTrail = L.polyline([], {
+            color: "#38d9ff",
+            weight: 3,
+            opacity: 0.3,
+            interactive: false,
+        }).addTo(map);
+
+        // 現在位置のマーカーより後ろに表示する
+        issTrail.bringToBack();
+    }
+    // 保存した位置で線を更新する
+    issTrail.setLatLngs(segments);
+}
+
 // ==================================================
 // 7. 通信と表示をつなぐ処理
 // ==================================================
@@ -189,6 +289,7 @@ async function refreshISS() {
 
         updateISSMarker(position);
         updateISSStatus(position);
+        updateISSTrail(position);
     } catch (error) {
         console.error("ISSの更新に失敗しました", error);
         // ISSを取得できなかった時のエラーハンドリング DOMに表示するほう
@@ -279,12 +380,13 @@ async function initializeLocations() {
 
 // 3のmap展開
 const map = createMap();
+addObservationGuides(map);
 
 // 都市一覧の取得と初期表示を開始する
 const locationsReady = initializeLocations();
 
 // 初期表示
-updateSelectedCity();
+// updateSelectedCity();
 
 // 都市の選択
 citySelect.addEventListener("change", updateSelectedCity);
