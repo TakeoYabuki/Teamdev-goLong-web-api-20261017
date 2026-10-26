@@ -137,6 +137,23 @@ function showWorld() {
     map.setView([20, 0], 2);
 }
 
+// 地図の表示状態に合わせて、操作ボタンの色を切り替える
+function updateMapButtonState() {
+    const city = cities[citySelect.value];
+
+    // 初期表示より拡大していて、観測地点が画面内にあるか
+    const isCityVisible = Boolean(
+        city &&
+        map.getZoom() > WORLD_VIEW.zoom &&
+        map.getBounds().contains([city.lat, city.lon]),
+    );
+
+    focusCityButton.classList.toggle("button-primary", !isCityVisible);
+    focusCityButton.classList.toggle("button-secondary", isCityVisible);
+
+    showWorldButton.classList.toggle("button-primary", isCityVisible);
+    showWorldButton.classList.toggle("button-secondary", !isCityVisible);
+}
 // ==================================================
 // 4. 観測都市の表示
 // ==================================================
@@ -157,8 +174,10 @@ function updateSelectedCity() {
         cityMarker.setLatLng(coordinates);
     }
 
-    cityMarker.setPopupContent(`観測地点: ${city.name}`); // cityMarkerでポップアップする
-    selectedCity.textContent = `観測地点: ${city.name}`; // Dom追加
+    cityMarker.setPopupContent(`観測地点: ${city.name}`);
+    selectedCity.textContent = `観測地点: ${city.name}`;
+
+    updateMapButtonState();
 }
 
 // ==================================================
@@ -410,6 +429,11 @@ async function startISSUpdates() {
 // 3のmap展開
 const map = createMap();
 addObservationGuides(map);
+// 手動操作・ボタン操作・画面サイズ変更に対応する
+map.on("moveend zoomend resize", updateMapButtonState);
+
+// 初期表示の色を設定する
+updateMapButtonState();
 
 // 都市一覧の取得と初期表示を開始する
 const locationsReady = initializeLocations();
