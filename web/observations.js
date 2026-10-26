@@ -237,22 +237,28 @@ function updatePassCountdown(startTime) {
     nextPassCountdown.textContent = `${pad(hours)}時間 ${pad(minutes)}分 ${pad(seconds)}秒`;
 }
 
-function renderNextPass(pass) {
-    // 都市変更時などに、前のタイマーを止める
+// タイマーの停止と数値欄の初期化だけを担当する関数
+function clearNextPassDisplay() {
     clearInterval(countdownTimer);
     countdownTimer = null;
 
-    if (pass == null) {
+    nextPassCountdown.textContent = "—";
+    nextPassStart.textContent = "—";
+    nextPassDirection.textContent = "—";
+    nextPassElevation.textContent = "—";
+    nextPassCloud.textContent = "—";
+    nextPassVisibility.textContent = "—";
+    nextPassMessage.textContent = "";
+}
+
+function renderNextPass(pass) {
+    clearNextPassDisplay();
+
+    if (pass === null) {
         nextPassCountdown.textContent = "通過予定なし";
-        nextPassStart.textContent = "—";
-        nextPassDirection.textContent = "—";
-        nextPassElevation.textContent = "—";
-        nextPassCloud.textContent = "—";
-        nextPassVisibility.textContent = "—";
         nextPassMessage.textContent = "今後3日間の通過予測はありません。";
         return;
     }
-
     // 日時を日本時間の表示にする
     nextPassStart.textContent = new Date(pass.start.time).toLocaleString(
         "ja-JP",
@@ -518,7 +524,7 @@ async function refreshPasses() {
     };
 
     // 前の都市の情報とタイマーをクリア
-    renderNextPass(null);
+    clearNextPassDisplay();
     nextPassCountdown.textContent = "取得中…";
     nextPassCity.textContent = `観測地点：${cityName}`;
     nextPassMessage.textContent = "通過情報を取得しています…";
@@ -588,7 +594,8 @@ locationsReady.then((ready) => {
         return;
     }
 
-    renderNextPass(null);
+    // 前の都市の情報とタイマーをクリア
+    clearNextPassDisplay();
 
     nextPassCountdown.textContent = "取得できません";
     nextPassMessage.textContent =
