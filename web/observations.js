@@ -313,15 +313,21 @@ function renderNextPass(pass) {
 // ==================================================
 // 通過一覧の表示
 // ==================================================
-function renderPassList(passes) {
+function renderPassList(passes, summary, total) {
     // 前の一覧や案内文を消す
     passesList.replaceChildren();
     //なかったらPタグつくってメッセージ出す
     if (passes.length === 0) {
         const message = document.createElement("p");
-
         message.className = "passes-empty";
-        message.textContent = "表示する通過予定がありません。";
+
+        if (summary.total === 0) {
+            message.textContent = "今後3日間に通過予定はありません。";
+        } else if (total === 0) {
+            message.textContent = "指定した条件に合う通過予定はありません。";
+        } else {
+            message.textContent = "このページに通過情報はありません。";
+        }
 
         passesList.append(message);
         return;
@@ -509,6 +515,56 @@ function renderPassPagination(data) {
 // 4. 通過情報の取得と表示
 // ==================================================
 
+// API応答に、必要な項目があるか確認
+function validatePassesResponse(data) {
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("通過情報の応答がオブジェクトではありません");
+    }
+    // nullは「候補なし」なので許可する
+    if (!Object.hasOwn(data, "nextCandidate")) {
+        throw new Error("次回候補の項目がありません");
+    }
+    if (
+        data.nextCandidate !== null &&
+        (typeof data.nextCandidate !== "object" ||
+            Array.isArray(data.nextCandidate))
+    ) {
+        throw new Error("次回候補の形式が不正です");
+    }
+    if (!Array.isArray(data.passes)) {
+        throw new Error("通過一覧が配列ではありません");
+    }
+
+    // 集計に必要な件数を確認
+    const summaryKeys = ["total", "good", "fair", "poor", "unknown"];
+
+    for (const key of summaryKeys) {
+        const value = data.summary?.[key];
+
+        if (!Number.isInteger(value) || value < 0) {
+            throw new Error(`集計の${key}が不正です`);
+        }
+    }
+
+    // ページ情報を確認
+    const minimums = {
+        page: 1,
+        limit: 1,
+        total: 0,
+        totalPages: 0,
+    };
+
+    for (const [key, minimum] of Object.entries(minimums)) {
+        if (!Number.isInteger(data[key]) || data[key] < minimum) {
+            throw new Error(`ページ情報の${key}が不正です`);
+        }
+    }
+
+    if (data.limit > 50) {
+        throw new Error("1ページの取得件数が上限を超えています");
+    }
+}
+
 async function refreshPasses() {
     const requestId = ++passesRequestId;
     const cityId = citySelect.value;
@@ -542,21 +598,31 @@ async function refreshPasses() {
         // より新しいリクエストがあれば、この結果は使わない
         if (requestId !== passesRequestId) return;
 
+        // 追加：応答の形式を確認
+        validatePassesResponse(data);
+
         currentPage = data.page;
 
         renderNextPass(data.nextCandidate);
-        renderPassList(data.passes);
+        renderPassList(data.passes, data.summary, data.total);
         renderPassSummary(data.summary);
         renderPassPagination(data);
     } catch (error) {
         if (requestId !== passesRequestId) return;
 
-        console.error("通過情報の取得に失敗しました:", error);
+        console.error("通過情報の取得に失敗しました", error);
+
+        clearNextPassDisplay();
 
         nextPassCountdown.textContent = "取得失敗";
         nextPassMessage.textContent = "通過情報を取得できませんでした。";
 
         passesList.textContent = "通過情報を取得できませんでした。";
+        passesSummary.textContent = "";
+        passesPageInfo.textContent = "";
+
+        passesPrev.disabled = true;
+        passesNext.disabled = true;
     }
 }
 
