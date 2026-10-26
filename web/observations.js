@@ -1,7 +1,13 @@
 // ==================================================
+// 通過情報の表示
+// app.js の後に読み込むこと。
+// citySelect・locationsReady・API_BASE_URL を使用する。
+// ==================================================
+
+// ==================================================
 // 1. HTML要素の取得
 // ==================================================
-//左側 次回通過の要素取得
+//左側：次回通過
 const nextPassCity = document.getElementById("next-pass-city");
 const nextPassCountdown = document.getElementById("next-pass-countdown");
 const nextPassStart = document.getElementById("next-pass-start");
@@ -10,16 +16,23 @@ const nextPassElevation = document.getElementById("next-pass-elevation");
 const nextPassCloud = document.getElementById("next-pass-cloud");
 const nextPassVisibility = document.getElementById("next-pass-visibility");
 const nextPassMessage = document.getElementById("next-pass-message");
-// 右側
+// 右側：通過一覧
 const passesList = document.getElementById("passes-list");
 const passesSummary = document.getElementById("passes-summary");
 const passesPageInfo = document.getElementById("passes-page-info");
 const passesPrev = document.getElementById("passes-prev");
 const passesNext = document.getElementById("passes-next");
-// sort関連
+// 絞り込みと並べ替え
 const visibilityFilter = document.getElementById("visibility-filter");
 const elevationFilter = document.getElementById("elevation-filter");
 const passesSort = document.getElementById("passes-sort");
+
+// 1ページに表示する件数
+const PASSES_PER_PAGE = 3;
+
+// API完成後は false に変更する。
+// 一覧と詳細を同時に切り替える。
+const USE_MOCK_PASSES = true;
 
 // 現在のページ
 let currentPage = 1;
@@ -29,10 +42,80 @@ let passesRequestId = 0;
 
 // カウントダウンのタイマーを管理
 let countdownTimer = null;
+
 // ==================================================
-// 2. 通過情報の取得（現在はモック）
+// 2. 共通の定数と表示用の関数
 // ==================================================
-// TODO: GET /api/iss/passesを呼ぶ cityIDにはtokyoとかが入る
+
+// APIから返る見やすさの判定を日本語にする
+const VISIBILITY_LABELS = {
+    good: "良好",
+    fair: "通常",
+    poor: "条件が厳しい",
+    unknown: "判定不明",
+};
+
+function formatVisibility(visibility) {
+    return VISIBILITY_LABELS[visibility] ?? "判定不明";
+}
+
+// 「月/日 時：分 （日本時間）
+function formatDateTime(value) {
+    return new Date(value).toLocaleString("ja-JP",
+        {
+            timeZone: "Asia/Tokyo",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        }
+    );
+}
+
+// 「時:分:秒」（日本時間）
+function formatTime(value) {
+    return new Date(value).toLocaleTimeString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    });
+}
+
+// 「北西 → 北東」
+function formatDirection(pass) {
+    return `${pass.start.direction} → ${pass.end.direction}`;
+}
+
+// 雲量の予報がない場合は「予報なし」
+function formatCloud(cloudCover) {
+    return cloudCover === null ? "予報なし" : `${cloudCover}%`;
+}
+
+// 取得中・失敗・都市なしなどのとき、左右の表示をまとめて切り替える
+function showPassesMessage(countdownText, message) {
+    clearNextPassDisplay();
+
+    nextPassCountdown.textContent = countdownText;
+    nextPassMessage.textContent = message;
+
+    passesList.textContent = message;
+    passesSummary.textContent = "";
+    passesPageInfo.textContent = "";
+
+    passesPrev.disabled = true;
+    passesNext.disabled = true;
+}
+// ==================================================
+// 3. 通過情報の取得（現在はモック）
+// ==================================================
+// モックの基準時刻を固定する。
+// 再取得しても、同じ通過のIDが変わらないようにする。
+const MOCK_BASE_TIME = Math.floor(Date.now() / 1000) * 1000;
+
+// GET /api/iss/passes
 async function fetchISSPasses(cityId, options = {}) {
     const {
         visibility = "",
@@ -42,44 +125,74 @@ async function fetchISSPasses(cityId, options = {}) {
         limit = 3,
     } = options;
 
-    // --------------------------------------------------
-    // TODO: 本番用：API完成後にコメントを外す
-    // --------------------------------------------------
+    if (USE_MOCK_PASSES) {
+        return createMockPassesResponse(cityId, options);
+    }
 
-    // // 都市IDをクエリパラメータにする
-    // const params = new URLSearchParams({
-    //     city: cityId,
-    //     minElevation: String(minElevation),
-    //     sort: sort,
-    //     page: String(page),
-    //     limit: String(limit),
-    // });
+    // 都市IDをクエリパラメータにする
+    const params = new URLSearchParams({
+        city: cityId,
+        minElevation: String(minElevation),
+        sort: sort,
+        page: String(page),
+        limit: String(limit),
+    });
 
-    // if (visibility !== "") {
-    //     params.set("visibility", visibility);
-    // }
+    if (visibility !== "") {
+        params.set("visibility", visibility);
+    }
+    return fetchPassesJSON(
+        `${API_BASE_URL}/api/iss/passes?${params}`,
+        "通過情報を取得できませんでした。",
+    );
+}
 
-    // // 自分たちのGo APIへリクエストを送る
-    // const response = await fetch(`${API_BASE_URL}/api/iss/passes?${params}`);
+// HTTPエラーと、JSONとして読めない応答を確認する
+async function fetchPassesJSON(url, fallbackMessage) {
+    const response = await fetch(url);
+    let data;
 
-    // // HTTPエラーを確認する
-    // if (!response.ok) {
-    //     throw new Error(
-    //         `通過情報の取得に失敗しました: HTTP ${response.status}`,
-    //     );
-    // }
-    // // レスポンス本文のJSONを読み取る
-    // const data = await response.json();
+    try {
+        data = await response.json();
+    } catch {
+        const error = new Error(
+            response.ok
+                ? "APIの応答をJSONとして読み取れませんでした。"
+                : fallbackMessage,
+        );
 
-    // return data;
+        error.status = response.status;
+        throw error;
+    }
 
-    // --------------------------------------------------
-    // TODO: モック用：API接続時は、この部分を削除またはコメントアウト
-    // --------------------------------------------------
+    if (!response.ok) {
+        // Go側の共通エラー形式から取り出す
+        const message = data?.error?.message;
 
-    const now = Date.now();
+        const error = new Error(
+            typeof message === "string" && message.trim() !== ""
+                ? message
+                : fallbackMessage,
+        );
 
-    // 各通過の仮の条件
+        error.status = response.status;
+
+        if (typeof data?.error?.code === "string") {
+            error.code = data.error.code;
+        }
+
+        throw error;
+    }
+
+    return data;
+}
+
+// ==================================================
+// モックデータ
+// ==================================================
+
+// 一覧と詳細で同じID・同じ内容の通過を作る
+function createMockPasses(cityId) {
     const mockConditions = [
         {
             hoursLater: 2,
@@ -110,9 +223,9 @@ async function fetchISSPasses(cityId, options = {}) {
         },
     ];
 
-    // 3件の通過オブジェクトを作る モックデータ加工用関数
-    const passes = mockConditions.map((condition) => {
-        const startTime = now + condition.hoursLater * 60 * 60 * 1000;
+    return mockConditions.map((condition) => {
+        const startTime =
+            MOCK_BASE_TIME + condition.hoursLater * 60 * 60 * 1000;
 
         const maxTime = startTime + 3 * 60 * 1000;
         const endTime = startTime + 6 * 60 * 1000;
@@ -150,58 +263,78 @@ async function fetchISSPasses(cityId, options = {}) {
             message: condition.message,
         };
     });
+}
+function createMockPassesResponse(cityId, options) {
+    const { page = 1, limit = PASSES_PER_PAGE } = options;
 
+    const from = Date.now();
+    const to = from + 72 * 60 * 60 * 1000;
+
+    // 開始時刻を過ぎた通過は次回候補と一覧から外す
+    const passes = createMockPasses(cityId).filter((pass) => {
+        const start = Date.parse(pass.start.time);
+
+        return start >= from && start < to;
+    });
+
+    const summary = {
+        total: passes.length,
+        good: 0,
+        fair: 0,
+        poor: 0,
+        unknown: 0,
+    };
+
+    for (const pass of passes) {
+        summary[pass.visibility] += 1;
+    }
+
+    // モックは絞り込み・並べ替えを再現しない。
+    // ページ分けだけ確認できる。
     return {
-        nextCandidate: passes[0],
-        passes: passes,
-
-        summary: {
-            total: 3,
-            good: 1,
-            fair: 1,
-            poor: 1,
-            unknown: 0,
-        },
-
-        page: 1,
-        limit: 3,
-        total: 3,
-        totalPages: 1,
+        nextCandidate: passes[0] ?? null,
+        passes: passes.slice((page - 1) * limit, page * limit),
+        summary,
+        page,
+        limit,
+        total: passes.length,
+        totalPages: Math.ceil(passes.length / limit),
     };
 }
-
 // ==================================================
-// 通過1件の詳細を取得 /api/iss/passes/{id}
+// 4. 通過1件の詳細を取得
 // ==================================================
 
+// GET /api/iss/passes/{id}
 async function fetchISSPassDetail(cityId, passId) {
+    if (USE_MOCK_PASSES) {
+        const pass = createMockPasses(cityId).find(
+            (item) => item.id === passId,
+        );
+
+        if (!pass) {
+            const error = new Error(
+                "詳細を取得できません。一覧を更新してください。",
+            );
+
+            error.status = 404;
+            throw error;
+        }
+
+        return pass;
+    }
     const params = new URLSearchParams({
         city: cityId,
     });
 
-    const response = await fetch(
+    return fetchPassesJSON(
         `${API_BASE_URL}/api/iss/passes/${encodeURIComponent(passId)}?${params}`,
+        "通過詳細を取得できませんでした。",
     );
-
-    if (!response.ok) {
-        if (response.status === 404) {
-            throw new Error(
-                "通過情報が見つかりません。一覧を更新してください。",
-            );
-        }
-
-        throw new Error(
-            `通過詳細の取得に失敗しました: HTTP ${response.status}`,
-        );
-    }
-
-    const data = await response.json();
-
-    return data;
 }
 
 // ==================================================
-// 3. 次回通過の表示
+// 5. 次回通過の表示
 // ==================================================
 // 通過開始までの残り時間を表示する
 function updatePassCountdown(startTime) {
@@ -259,37 +392,12 @@ function renderNextPass(pass) {
         nextPassMessage.textContent = "今後3日間の通過予測はありません。";
         return;
     }
-    // 日時を日本時間の表示にする
-    nextPassStart.textContent = new Date(pass.start.time).toLocaleString(
-        "ja-JP",
-        {
-            timeZone: "Asia/Tokyo",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-        },
-    );
 
-    nextPassDirection.textContent = `${pass.start.direction} -> ${pass.end.direction}`;
+    nextPassStart.textContent = formatDateTime(pass.start.time);
+    nextPassDirection.textContent = formatDirection(pass);
     nextPassElevation.textContent = `${pass.max.elevation}°`;
-
-    // 雲量の予報がない場合は不明
-    nextPassCloud.textContent =
-        pass.cloudCover === null ? "予報なし" : `${pass.cloudCover}%`;
-
-    // GOから返る判定結果を日本語にする
-    const visibilityLabels = {
-        good: "良好",
-        fair: "通常",
-        poor: "条件が厳しい",
-        unknown: "判定不明",
-    };
-
-    nextPassVisibility.textContent =
-        visibilityLabels[pass.visibility] ?? "判定不明";
-
+    nextPassCloud.textContent = formatCloud(pass.cloudCover);
+    nextPassVisibility.textContent = formatVisibility(pass.visibility);
     nextPassMessage.textContent = pass.message;
 
     const startTime = new Date(pass.start.time).getTime();
@@ -311,7 +419,7 @@ function renderNextPass(pass) {
 }
 
 // ==================================================
-// 通過一覧の表示
+// 6. 通過一覧の表示
 // ==================================================
 function renderPassList(passes, summary, total) {
     // 前の一覧や案内文を消す
@@ -333,132 +441,113 @@ function renderPassList(passes, summary, total) {
         return;
     }
 
-    const visibilityLabels = {
-        good: "良好",
-        fair: "通常",
-        poor: "条件が厳しい",
-        unknown: "判定不明",
-    };
+    // 描画した時点の都市を詳細取得に使う
+    const cityId = citySelect.value;
 
     for (const pass of passes) {
-        // 通過1件を表示する行
-        const row = document.createElement("div");
-        row.className = "pass-row";
-
-        // 通過開始日時
-        const date = document.createElement("span");
-        date.className = "pass-row-date";
-        date.textContent = new Date(pass.start.time).toLocaleString("ja-JP", {
-            timeZone: "Asia/Tokyo",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-        });
-
-        // 方角
-        const direction = document.createElement("span");
-        direction.className = "pass-row-direction";
-        direction.textContent = `${pass.start.direction} → ${pass.end.direction}`;
-
-        // 最大仰角
-        const elevation = document.createElement("span");
-        elevation.className = "pass-row-elevation";
-        elevation.textContent = `${pass.max.elevation}°`;
-
-        // 見やすさ
-        const visibility = document.createElement("span");
-        visibility.className = "visibility-badge";
-        visibility.dataset.visibility = pass.visibility;
-        visibility.textContent =
-            visibilityLabels[pass.visibility] ?? "判定不明";
-
-        // 詳細ボタン
-        const detailButton = document.createElement("button");
-        detailButton.type = "button";
-        detailButton.className = "pass-detail-button";
-        detailButton.textContent = "詳細";
-        detailButton.setAttribute("aria-expanded", "false");
-
-        // 詳細を表示する領域
-        const detailPanel = document.createElement("div");
-        detailPanel.className = "pass-detail";
-        detailPanel.id = `pass-detail-${pass.id}`;
-        detailPanel.hidden = true;
-
-        detailButton.setAttribute("aria-controls", detailPanel.id);
-
-        // クリック時に使う都市を保存
-        const cityId = citySelect.value;
-
-        // 一度取得した詳細は、開き直しても再取得しない
-        let detailLoaded = false;
-
-        detailButton.addEventListener("click", async () => {
-            // 開いている場合は閉じる
-            if (!detailPanel.hidden) {
-                detailPanel.hidden = true;
-                detailButton.textContent = "詳細";
-                detailButton.setAttribute("aria-expanded", "false");
-                return;
-            }
-
-            // 閉じている場合は開く
-            detailPanel.hidden = false;
-            detailButton.textContent = "閉じる";
-            detailButton.setAttribute("aria-expanded", "true");
-
-            if (detailLoaded) return;
-
-            detailPanel.textContent = "詳細を取得しています…";
-            detailButton.disabled = true;
-
-            try {
-                const detail = await fetchISSPassDetail(cityId, pass.id);
-
-                renderPassDetail(detailPanel, detail);
-                detailLoaded = true;
-            } catch (error) {
-                console.error("通過詳細の取得に失敗しました:", error);
-
-                detailPanel.textContent =
-                    "通過詳細を取得できませんでした。通信状況やAPIの起動状態を確認してください。";
-            } finally {
-                detailButton.disabled = false;
-            }
-        });
-
-        // 各項目を行へ入れる
-        row.append(date, direction, elevation, visibility, detailButton);
-
-        // 行と詳細をまとめる
-        const item = document.createElement("div");
-        item.className = "pass-item";
-        item.append(row, detailPanel);
-
-        // 一覧へ入れる
-        passesList.append(item);
+        passesList.append(createPassItem(pass, cityId));
     }
 }
+
+// 通過1件分の行と詳細パネルを作る
+function createPassItem(pass, cityId) {
+    const row = document.createElement("div");
+    row.className = "pass-row";
+
+    // 通過開始日時
+    const date = document.createElement("span");
+    date.className = "pass-row-date";
+    date.textContent = formatDateTime(pass.start.time);
+
+    // 方角
+    const direction = document.createElement("span");
+    direction.className = "pass-row-direction";
+    direction.textContent = formatDirection(pass);
+
+    // 最大仰角
+    const elevation = document.createElement("span");
+    elevation.className = "pass-row-elevation";
+    elevation.textContent = `${pass.max.elevation}°`;
+
+    // 見やすさ
+    const visibility = document.createElement("span");
+    visibility.className = "visibility-badge";
+    visibility.dataset.visibility = pass.visibility;
+    visibility.textContent = formatVisibility(pass.visibility);
+
+    // 詳細ボタン
+    const detailButton = document.createElement("button");
+    detailButton.type = "button";
+    detailButton.className = "pass-detail-button";
+    detailButton.textContent = "詳細";
+    detailButton.setAttribute("aria-expanded", "false");
+
+    // 詳細を表示する領域
+    const detailPanel = document.createElement("div");
+    detailPanel.className = "pass-detail";
+    detailPanel.id = `pass-detail-${pass.id}`;
+    detailPanel.hidden = true;
+
+    detailButton.setAttribute("aria-controls", detailPanel.id);
+
+    // 一度取得した詳細は、開き直しても再取得しない
+    let detailLoaded = false;
+
+    detailButton.addEventListener("click", async () => {
+        // 開いている場合は閉じる
+        if (!detailPanel.hidden) {
+            detailPanel.hidden = true;
+            detailButton.textContent = "詳細";
+            detailButton.setAttribute("aria-expanded", "false");
+            return;
+        }
+
+        // 閉じている場合は開く
+        detailPanel.hidden = false;
+        detailButton.textContent = "閉じる";
+        detailButton.setAttribute("aria-expanded", "true");
+
+        if (detailLoaded) return;
+
+        detailPanel.textContent = "詳細を取得しています…";
+        detailButton.disabled = true;
+
+        try {
+            const detail = await fetchISSPassDetail(cityId, pass.id);
+
+            validatePass(detail, "通過詳細");
+            renderPassDetail(detailPanel, detail);
+
+            detailLoaded = true;
+        } catch (error) {
+            console.error("通過詳細の取得に失敗しました:", error);
+
+            detailPanel.textContent =
+                error.status === 404
+                    ? "詳細を取得できません。一覧を更新してください。"
+                    : "通過詳細を取得できませんでした。通信状況やAPIの起動状態を確認してください。";
+        } finally {
+            detailButton.disabled = false;
+        }
+    });
+
+    // 各項目を行へ入れる
+    row.append(date, direction, elevation, visibility, detailButton);
+
+    // 行と詳細をまとめる
+    const item = document.createElement("div");
+    item.className = "pass-item";
+    item.append(row, detailPanel);
+
+    return item;
+}
+
 // ==================================================
-// 通過詳細の表示
+// 7. 通過詳細の表示
 // ==================================================
 
 function renderPassDetail(container, pass) {
     container.replaceChildren();
-
-    function formatTime(value) {
-        return new Date(value).toLocaleTimeString("ja-JP", {
-            timeZone: "Asia/Tokyo",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false,
-        });
-    }
-
-    const cloud = pass.cloudCover === null ? "予報なし" : `${pass.cloudCover}%`;
 
     const magnitude =
         pass.magnitude === null ? "不明" : `${pass.magnitude}等級`;
@@ -470,7 +559,7 @@ function renderPassDetail(container, pass) {
         `時刻は日本時間（JST）です。`,
         `最大仰角：${pass.max.elevation}°`,
         `目視可能時間：${pass.durationSec}秒`,
-        `雲量：${cloud}`,
+        `雲量：${formatCloud(pass.cloudCover)}`,
         `明るさ：${magnitude}`,
         `判定理由：${pass.reasons.join("・")}`,
         pass.message,
@@ -486,10 +575,10 @@ function renderPassDetail(container, pass) {
 // 見やすさ別の件数
 function renderPassSummary(summary) {
     passesSummary.textContent =
-        `良好 ${summary.good}件 ／ ` +
-        `通常 ${summary.fair}件 ／ ` +
-        `条件が厳しい ${summary.poor}件 ／ ` +
-        `判定不明 ${summary.unknown}件`;
+        `${VISIBILITY_LABELS.good} ${summary.good}件 ／ ` +
+        `${VISIBILITY_LABELS.fair} ${summary.fair}件 ／ ` +
+        `${VISIBILITY_LABELS.poor} ${summary.poor}件 ／ ` +
+        `${VISIBILITY_LABELS.unknown} ${summary.unknown}件`;
 }
 
 // ページ情報とボタンの状態
@@ -512,9 +601,58 @@ function renderPassPagination(data) {
 }
 
 // ==================================================
-// 4. 通過情報の取得と表示
+// 8. 応答の検証
 // ==================================================
+// 通過1件の内容を確認する。
+// nullを許可するかどうかは、呼び出し側で判断する。
+function validatePass(pass, label = "通過情報") {
+    const isObject = (value) =>
+        value !== null && typeof value === "object" && !Array.isArray(value);
 
+    const isText = (value) => typeof value === "string" && value.trim() !== "";
+
+    if (!isObject(pass) || !isText(pass.id)) {
+        throw new Error(`${label}のIDまたは形式が不正です。`);
+    }
+
+    for (const key of ["start", "max", "end"]) {
+        const point = pass[key];
+
+        if (
+            !isObject(point) ||
+            !isText(point.time) ||
+            !Number.isFinite(Date.parse(point.time)) ||
+            !isText(point.direction) ||
+            !Number.isFinite(point.azimuth) ||
+            point.azimuth < 0 ||
+            point.azimuth >= 360 ||
+            !Number.isFinite(point.elevation) ||
+            point.elevation < 0 ||
+            point.elevation > 90
+        ) {
+            throw new Error(`${label}の${key}が不正です。`);
+        }
+    }
+
+    if (
+        !Number.isInteger(pass.durationSec) ||
+        pass.durationSec < 0 ||
+        (pass.cloudCover !== null &&
+            (!Number.isFinite(pass.cloudCover) ||
+                pass.cloudCover < 0 ||
+                pass.cloudCover > 100)) ||
+        (pass.magnitude !== null && !Number.isFinite(pass.magnitude)) ||
+        !Object.hasOwn(VISIBILITY_LABELS, pass.visibility) ||
+        !Array.isArray(pass.reasons) ||
+        !pass.reasons.every((reason) => typeof reason === "string") ||
+        typeof pass.message !== "string" ||
+        (pass.weatherAt !== null &&
+            (typeof pass.weatherAt !== "string" ||
+                !Number.isFinite(Date.parse(pass.weatherAt))))
+    ) {
+        throw new Error(`${label}の表示項目が不正です。`);
+    }
+}
 // API応答に、必要な項目があるか確認
 function validatePassesResponse(data) {
     if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -533,6 +671,13 @@ function validatePassesResponse(data) {
     }
     if (!Array.isArray(data.passes)) {
         throw new Error("通過一覧が配列ではありません");
+    }
+    if (data.nextCandidate !== null) {
+        validatePass(data.nextCandidate, "次回候補");
+    }
+
+    for (const pass of data.passes) {
+        validatePass(pass, "通過一覧");
     }
 
     // 集計に必要な件数を確認
@@ -565,10 +710,14 @@ function validatePassesResponse(data) {
     }
 }
 
+// ==================================================
+// 9. 通過情報の取得と表示
+// ==================================================
+
 async function refreshPasses() {
     const requestId = ++passesRequestId;
     const cityId = citySelect.value;
-    const cityName = citySelect.selectedOptions[0].textContent;
+    const cityName = citySelect.selectedOptions[0]?.textContent ?? "";
 
     // HTMLで選んだ条件をまとめる
     const options = {
@@ -576,21 +725,11 @@ async function refreshPasses() {
         minElevation: Number(elevationFilter.value),
         sort: passesSort.value,
         page: currentPage,
-        limit: 3,
+        limit: PASSES_PER_PAGE,
     };
+    showPassesMessage("取得中...", "通過情報を取得しています...");
 
-    // 前の都市の情報とタイマーをクリア
-    clearNextPassDisplay();
-    nextPassCountdown.textContent = "取得中…";
     nextPassCity.textContent = `観測地点：${cityName}`;
-    nextPassMessage.textContent = "通過情報を取得しています…";
-
-    passesList.textContent = "通過情報を取得しています…";
-    passesSummary.textContent = "";
-    passesPageInfo.textContent = "";
-
-    passesPrev.disabled = true;
-    passesNext.disabled = true;
 
     try {
         const data = await fetchISSPasses(cityId, options);
@@ -612,28 +751,28 @@ async function refreshPasses() {
 
         console.error("通過情報の取得に失敗しました", error);
 
-        clearNextPassDisplay();
-
-        nextPassCountdown.textContent = "取得失敗";
-        nextPassMessage.textContent = "通過情報を取得できませんでした。";
-
-        passesList.textContent = "通過情報を取得できませんでした。";
-        passesSummary.textContent = "";
-        passesPageInfo.textContent = "";
-
-        passesPrev.disabled = true;
-        passesNext.disabled = true;
+        showPassesMessage("取得失敗", "通過情報を取得できませんでした。");
     }
 }
 
 // ==================================================
-// 5. 初期表示とイベント登録
+// 10. 初期表示とイベント登録
 // ==================================================
 // 都市・絞り込み・並べ替えを変えたら1ページ目に戻す
 function resetPageAndRefresh() {
     currentPage = 1;
     refreshPasses();
 }
+
+// モックでは条件処理を実装していないため、選択欄を無効にする。
+// 本番ではGo側が絞り込み・並べ替えを担当する。
+if (USE_MOCK_PASSES) {
+    for (const control of [visibilityFilter, elevationFilter, passesSort]) {
+        control.disabled = true;
+        control.title = "モック表示中は絞り込み・並べ替えを利用できません。";
+    }
+}
+
 citySelect.addEventListener("change", resetPageAndRefresh);
 visibilityFilter.addEventListener("change", resetPageAndRefresh);
 elevationFilter.addEventListener("change", resetPageAndRefresh);
@@ -663,10 +802,8 @@ locationsReady.then((ready) => {
     // 前の都市の情報とタイマーをクリア
     clearNextPassDisplay();
 
-    nextPassCountdown.textContent = "取得できません";
-    nextPassMessage.textContent =
-        "都市一覧を取得できないため、通過情報を表示できません。";
-
-    passesList.textContent =
-        "都市一覧を取得できないため、通過情報を表示できません。";
+    showPassesMessage(
+        "取得できません",
+        "都市一覧を取得できないため、通過情報を表示できません。",
+    );
 });
