@@ -2,9 +2,12 @@ package service
 
 import (
 	"cmp"
+	"context"
+	"log"
 	"slices"
 	"time"
 
+	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/client"
 	"github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017/internal/model"
 )
 
@@ -24,6 +27,32 @@ type PassesQuery struct {
 	Descending   bool
 	Page         int
 	Limit        int
+}
+
+var (
+	passesCache   = newCityCache[[]model.Pass]()
+	forecastCache = newCityCache[*model.CloudForecast]()
+)
+
+func GetPasses(ctx context.Context, query PassesQuery) (model.PassesResponse, error) {
+	location := query.Location
+
+	passes, predictionsFetchedAt, err := passesCache.get(location.ID, func() ([]model.Pass, error) {
+		return GetVisualPasses(ctx, location.ID, location.Lat, location.Lon)
+	})
+	if err != nil {
+		return model.PassesResponse{}, err
+	}
+
+	forecast, _, err := forecastCache.get(location.ID, func() (*model.CloudForecast, error) {
+		return client.FetchCloudForecast(ctx, location.Lat, location.Lon)
+	})
+	if err != nil {
+		log.Printf("雲量の予報を取得できませんでした: %v", err)
+		forecast = nil
+	}
+
+	return buildPassesResponse(query, passes, predictionsFetchedAt, forecast, time.Now()), nil
 }
 
 func buildPassesResponse(

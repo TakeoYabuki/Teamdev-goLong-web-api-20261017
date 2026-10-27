@@ -1,6 +1,11 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
@@ -78,6 +83,62 @@ func TestParsePassesQueryErrors(t *testing.T) {
 
 			if _, err := parsePassesQuery(params); err == nil {
 				t.Error("エラーになるはずが、通ってしまいました")
+			}
+		})
+	}
+}
+
+func TestPassesHandler(t *testing.T) {
+	succeed := func(ctx context.Context, query service.PassesQuery) (model.PassesResponse, error) {
+		return model.PassesResponse{Location: query.Location, Passes: []model.Pass{}}, nil
+	}
+	timeout := func(ctx context.Context, query service.PassesQuery) (model.PassesResponse, error) {
+		return model.PassesResponse{}, context.DeadlineExceeded
+	}
+	broken := func(ctx context.Context, query service.PassesQuery) (model.PassesResponse, error) {
+		return model.PassesResponse{}, errors.New("N2YOの失敗")
+	}
+
+	tests := []struct {
+		name       string
+		method     string
+		query      string
+		getPasses  func(context.Context, service.PassesQuery) (model.PassesResponse, error)
+		wantStatus int
+		wantCode   string
+	}{
+		{"正常", http.MethodGet, "?city=tokyo", succeed, http.StatusOK, ""},
+		{"GET以外は405", http.MethodPost, "?city=tokyo", succeed, http.StatusMethodNotAllowed, model.CodeMethodNotAllowed},
+		{"不正なパラメータは400", http.MethodGet, "?city=atlantis", succeed, http.StatusBadRequest, model.CodeInvalidParameter},
+		{"外部のタイムアウトは504", http.MethodGet, "?city=tokyo", timeout, http.StatusGatewayTimeout, model.CodeUpstreamTimeout},
+		{"外部の失敗は502", http.MethodGet, "?city=tokyo", broken, http.StatusBadGateway, model.CodeUpstreamError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "/api/iss/passes"+tt.query, nil)
+
+			passesHandler(rec, req, tt.getPasses)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if tt.wantCode == "" {
+				var body model.PassesResponse
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatalf("JSONを読めません: %v", err)
+				}
+				if body.Location.ID != "tokyo" {
+					t.Errorf("location.id = %q, want tokyo", body.Location.ID)
+				}
+				return
+			}
+			var body model.ErrorResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("JSONを読めません: %v", err)
+			}
+			if body.Error.Code != tt.wantCode {
+				t.Errorf("error.code = %q, want %q", body.Error.Code, tt.wantCode)
 			}
 		})
 	}

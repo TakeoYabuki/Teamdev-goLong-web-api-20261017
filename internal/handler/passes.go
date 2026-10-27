@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"context"
 	"errors"
+	"log"
 	"math"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -23,6 +26,44 @@ var sortKeys = []string{
 	service.SortByStart,
 	service.SortByMaxElevation,
 	service.SortByCloudCover,
+}
+
+func PassesHandler(w http.ResponseWriter, r *http.Request) {
+	passesHandler(w, r, service.GetPasses)
+}
+
+func passesHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	getPasses func(context.Context, service.PassesQuery) (model.PassesResponse, error),
+) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		WriteError(w, http.StatusMethodNotAllowed, model.CodeMethodNotAllowed, "GETを使用してください")
+		return
+	}
+
+	query, err := parsePassesQuery(r.URL.Query())
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, model.CodeInvalidParameter, err.Error())
+		return
+	}
+
+	response, err := getPasses(r.Context(), query)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if isUpstreamTimeout(err) {
+			WriteError(w, http.StatusGatewayTimeout, model.CodeUpstreamTimeout, "通過予測の取得がタイムアウトしました")
+			return
+		}
+		log.Printf("通過予測の取得エラー: %v", err)
+		WriteError(w, http.StatusBadGateway, model.CodeUpstreamError, "通過予測を取得できませんでした")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, response)
 }
 
 func parsePassesQuery(params url.Values) (service.PassesQuery, error) {
