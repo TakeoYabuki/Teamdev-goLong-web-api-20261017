@@ -9,6 +9,24 @@ const NIGHT_TILE_URL =
     "VIIRS_CityLights_2012/default/" +
     "GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 
+// 初期表示（世界全体）の中心とズーム
+const WORLD_VIEW = {
+    center: [20, 0],
+    zoom: 2,
+};
+
+// 都市へ移動するときのズーム
+const CITY_ZOOM = 5;
+
+// ISSのマーカーと軌跡の色
+const ISS_COLOR = "#38d9ff";
+
+// ISSの位置を取り直す間隔
+const ISS_UPDATE_INTERVAL_MS = 5000;
+
+// 移動履歴は直近40分を表示する
+const ISS_HISTORY_DURATION_MS = 40 * 60 * 1000;
+
 // APIから取得した都市データを入れる
 let cities = {};
 
@@ -27,9 +45,6 @@ const DEMO_CITY_IDS = [
     "kagoshima",
     "naha",
 ];
-
-// 移動履歴は直近40分を表示する
-const ISS_HISTORY_DURATION_MS = 40 * 60 * 1000;
 
 // ==================================================
 // 2. HTML要素とマーカーの管理
@@ -54,9 +69,8 @@ let issTrail = null; // leafletのpolylineオブジェクト
 // ==================================================
 
 function createMap() {
-    const map = L.map("map").setView([20, 0], 2); // Leaflet Map参照
+    const newMap = L.map("map").setView(WORLD_VIEW.center, WORLD_VIEW.zoom); // Leaflet Map参照
 
-    // 夜の世界地図を表示 TODO:出典明記すること
     L.tileLayer(NIGHT_TILE_URL, {
         attribution:
             'Imagery: <a href="https://earthdata.nasa.gov/gibs">NASA GIBS</a>' +
@@ -64,9 +78,9 @@ function createMap() {
         minZoom: 1,
         maxNativeZoom: 8,
         maxZoom: 8,
-    }).addTo(map);
+    }).addTo(newMap);
 
-    return map;
+    return newMap;
 }
 
 // 仰角10度以上の通過があり得る緯度範囲の目安
@@ -126,9 +140,9 @@ function showWorld() {
 // ==================================================
 // 4. 観測都市の表示
 // ==================================================
-// TODO: 選択した都市の更新 cityMarkerとissMarkerに入れる zoomしたほうがいいかも
+
 function updateSelectedCity() {
-    const city = cities[citySelect.value]; // optionの選択肢を拾う
+    const city = cities[citySelect.value];
 
     if (!city) {
         selectedCity.textContent = "都市を選択してください";
@@ -148,7 +162,85 @@ function updateSelectedCity() {
 }
 
 // ==================================================
-// 5. ISSのデータ取得
+// 5. 都市一覧の取得
+// ==================================================
+
+async function fetchLocations() {
+    const params = new URLSearchParams({
+        limit: "50",
+    });
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/locations/search?${params}`,
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(
+            data.error?.message ?? "都市一覧を取得できませんでした。",
+        );
+    }
+
+    if (!Array.isArray(data.results)) {
+        throw new Error("都市一覧の形式が不正です");
+    }
+    return data.results;
+}
+
+async function initializeLocations() {
+    citySelect.disabled = true;
+    selectedCity.textContent = "都市一覧を取得しています…";
+
+    try {
+        const locations = await fetchLocations();
+
+        // APIの都市データを、IDで取り出せる形にする
+        for (const location of locations) {
+            cities[location.id] = location;
+        }
+
+        // HTMLに書いていた選択肢を削除する
+        citySelect.replaceChildren();
+
+        // デモで使う都市だけを選択肢に追加する
+        for (const cityId of DEMO_CITY_IDS) {
+            const city = cities[cityId];
+
+            if (!city) continue;
+
+            const option = document.createElement("option");
+            option.value = city.id;
+            option.textContent = city.name;
+
+            citySelect.append(option);
+        }
+
+        if (citySelect.options.length === 0) {
+            throw new Error("選択できる都市がありません");
+        }
+
+        // 初期選択は東京にする
+        if (cities.tokyo) {
+            citySelect.value = "tokyo";
+        }
+
+        updateSelectedCity();
+        citySelect.disabled = false;
+
+        return true;
+    } catch (error) {
+        console.error("都市一覧の取得に失敗しました", error);
+
+        citySelect.replaceChildren();
+        selectedCity.textContent =
+            "都市一覧を取得できませんでした。APIの起動状態を確認してください。";
+
+        return false;
+    }
+}
+
+// ==================================================
+// 6. ISSのデータ取得
 // ==================================================
 
 // 非同期 ISSの位置をapiから取ってくる
@@ -174,9 +266,8 @@ async function fetchIssPosition() {
 
     return data;
 }
-
 // ==================================================
-// 6. ISSの表示
+// 7. ISSの表示
 // ==================================================
 
 // refreshISSから呼び出す
@@ -189,7 +280,7 @@ function updateISSMarker(position) {
             radius: 8,
             color: "#ffffff",
             weight: 2,
-            fillColor: "#38d9ff",
+            fillColor: ISS_COLOR,
             fillOpacity: 1,
         })
             .addTo(map)
@@ -203,7 +294,10 @@ function updateISSMarker(position) {
 function updateISSStatus(position) {
     const positionAt = new Date(position.positionAt);
 
-    if (Number.isNaN(positionAt.getTime())) {
+    if (
+        typeof position.positionAt !== "string" ||
+        Number.isNaN(positionAt.getTime())
+    ) {
         issStatus.textContent =
             "ISSの位置を取得しました。データ時刻は不明です。";
         return;
@@ -222,7 +316,10 @@ function updateISSTrail(position) {
     const positionTime = new Date(position.positionAt).getTime();
 
     // データ時刻が不正なら、履歴には追加しない
-    if (!Number.isFinite(positionTime)) {
+    if (
+        typeof position.positionAt !== "string" ||
+        !Number.isFinite(positionTime)
+    ) {
         return;
     }
 
@@ -266,7 +363,7 @@ function updateISSTrail(position) {
     // 線は最初の1回だけ作成する
     if (issTrail === null) {
         issTrail = L.polyline([], {
-            color: "#38d9ff",
+            color: ISS_COLOR,
             weight: 3,
             opacity: 0.3,
             interactive: false,
@@ -280,7 +377,7 @@ function updateISSTrail(position) {
 }
 
 // ==================================================
-// 7. 通信と表示をつなぐ処理
+// 8. 通信と表示をつなぐ処理
 // ==================================================
 
 async function refreshISS() {
@@ -300,82 +397,14 @@ async function refreshISS() {
     }
 }
 
-// ==================================================
-// 都市一覧の取得
-// ==================================================
-
-async function fetchLocations() {
-    const params = new URLSearchParams({
-        limit: "50",
-    });
-
-    const response = await fetch(
-        `${API_BASE_URL}/api/locations/search?${params}`,
-    );
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(
-            data.error?.message ?? "都市一覧を取得できませんでした。",
-        );
-    }
-    return data.results;
-}
-
-async function initializeLocations() {
-    citySelect.disabled = true;
-    selectedCity.textContent = "都市一覧を取得しています…";
-
-    try {
-        const locations = await fetchLocations();
-
-        // APIの都市データを、IDで取り出せる形にする
-        for (const location of locations) {
-            cities[location.id] = location;
-        }
-
-        // HTMLに書いていた選択肢を削除する
-        citySelect.replaceChildren();
-
-        // デモで使う都市だけを選択肢に追加する
-        for (const cityId of DEMO_CITY_IDS) {
-            const city = cities[cityId];
-
-            if (!city) continue;
-
-            const option = document.createElement("option");
-            option.value = city.id;
-            option.textContent = city.name;
-
-            citySelect.append(option);
-        }
-
-        if (citySelect.options.length === 0) {
-            throw new Error("選択できる都市がありません");
-        }
-
-        // 初期選択は東京にする
-        if (cities.tokyo && DEMO_CITY_IDS.includes("tokyo")) {
-            citySelect.value = "tokyo";
-        }
-
-        updateSelectedCity();
-        citySelect.disabled = false;
-
-        return true;
-    } catch (error) {
-        console.error("都市一覧の取得に失敗しました", error);
-
-        citySelect.replaceChildren();
-        selectedCity.textContent =
-            "都市一覧を取得できませんでした。APIの起動状態を確認してください。";
-
-        return false;
-    }
+// 取得が終わってから次の取得を予約する（リクエストが重ならない）
+async function startISSUpdates() {
+    await refreshISS();
+    setTimeout(startISSUpdates, ISS_UPDATE_INTERVAL_MS);
 }
 
 // ==================================================
-// 8. 初期表示とイベント登録
+// 9. 初期表示とイベント登録
 // ==================================================
 
 // 3のmap展開
@@ -395,10 +424,5 @@ citySelect.addEventListener("change", updateSelectedCity);
 focusCityButton.addEventListener("click", focusSelectedCity);
 showWorldButton.addEventListener("click", showWorld);
 
-// ISSの取得
-async function startISSUpdates() {
-    await refreshISS();
-    setTimeout(startISSUpdates, 5000); // 5秒おきに繰り返す
-}
 issStatus.textContent = "ISSの位置を取得しています...";
 startISSUpdates();
