@@ -28,7 +28,7 @@ func TestGetVisualPassesConversion(t *testing.T) {
 				EndEl:        0.27,
 
 				Duration: 210,
-				Mag:      0.2,
+				Mag:      ptr(0.2),
 			},
 		},
 	}
@@ -124,7 +124,7 @@ func TestGetVisualPassesUnknownMagnitude(t *testing.T) {
 		Passes: []model.N2YOPass{
 			{
 				StartUTC: 1792523360,
-				Mag:      100000,
+				Mag:      nil,
 			},
 		},
 	}
