@@ -97,8 +97,12 @@ func TestGetVisualPassesConversion(t *testing.T) {
 	}
 
 	// 明るさ
-	if p.Magnitude == nil || *p.Magnitude != 0.2 {
-		t.Errorf("Magnitude: got %v, want 0.2", p.Magnitude)
+	if p.Magnitude == nil {
+		t.Fatal("Magnitude: got nil, want 0.2")
+	}
+
+	if *p.Magnitude != 0.2 {
+		t.Errorf("Magnitude: got %v, want 0.2", *p.Magnitude)
 	}
 }
 
@@ -120,6 +124,32 @@ func TestGetVisualPassesEmpty(t *testing.T) {
 
 // 明るさが不明値の場合
 func TestGetVisualPassesUnknownMagnitude(t *testing.T) {
+	unknownMag := 100000.0
+
+	data := &model.N2YOResponse{
+		Passes: []model.N2YOPass{
+			{
+				StartUTC: 1792523360,
+				Mag:      &unknownMag,
+			},
+		},
+	}
+
+	passes, err := getVisualPasses("kagoshima", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(passes) != 1 {
+		t.Fatalf("passes: got %d, want 1", len(passes))
+	}
+
+	if passes[0].Magnitude != nil {
+		t.Errorf("Magnitude: got %v, want nil", *passes[0].Magnitude)
+	}
+}
+
+func TestGetVisualPassesNilMagnitude(t *testing.T) {
 	data := &model.N2YOResponse{
 		Passes: []model.N2YOPass{
 			{
@@ -131,14 +161,14 @@ func TestGetVisualPassesUnknownMagnitude(t *testing.T) {
 
 	passes, err := getVisualPasses("kagoshima", data)
 	if err != nil {
-		t.Fatalf("変換エラー: %v", err)
+		t.Fatal(err)
 	}
 
 	if len(passes) != 1 {
-		t.Fatalf("通過件数: got %d, want 1", len(passes))
+		t.Fatalf("passes: got %d, want 1", len(passes))
 	}
 
 	if passes[0].Magnitude != nil {
-		t.Errorf("Magnitudeはnilであるべきです")
+		t.Errorf("Magnitude: got %v, want nil", *passes[0].Magnitude)
 	}
 }
