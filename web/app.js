@@ -2,7 +2,7 @@
 // 1. 設定
 // ==================================================
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "";
 
 const NIGHT_TILE_URL =
     "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/" +
