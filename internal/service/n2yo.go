@@ -46,11 +46,11 @@ func getVisualPasses(cityID string, data *model.N2YOResponse) ([]model.Pass, err
 	// N2YOの通過予測を1件ずつ変換
 	for _, p := range data.Passes {
 
-		// 明るさ（不明値100000はnil）
+		// 明るさ
 		var magnitude *float64
-		if p.Mag != 100000 {
-			mag := p.Mag
-			magnitude = &mag
+
+		if p.Mag != nil && *p.Mag != 100000 {
+			magnitude = p.Mag
 		}
 
 		// 共通形式のPassを作成

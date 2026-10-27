@@ -85,8 +85,9 @@ func TestN2YOResponseDecode(t *testing.T) {
 	if p.Duration != 210 {
 		t.Errorf("Duration: got=%d", p.Duration)
 	}
-	if p.Mag != 0.2 {
-		t.Errorf("Mag: got=%f", p.Mag)
+
+	if p.Mag == nil || *p.Mag != 0.2 {
+		t.Errorf("Mag: got %v, want 0.2", p.Mag)
 	}
 
 	if p.StartEl != 12.02 {

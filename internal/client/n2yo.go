@@ -28,7 +28,7 @@ func FetchVisualPasses(ctx context.Context, lat, lon float64) (*model.N2YORespon
 
 	// N2YOのURLを作成
 	requestURL := fmt.Sprintf(
-		"%s/25544/%s/%s/0/4/0/",
+		"%s/25544/%s/%s/0/4/1/",
 		n2yoBaseURL,
 		latitude,
 		longitude,
@@ -67,7 +67,20 @@ func FetchVisualPasses(ctx context.Context, lat, lon float64) (*model.N2YORespon
 		return nil, err
 	}
 
-	fmt.Printf("N2YOレスポンス: %s\n", raw)
+	// N2YOがHTTP 200でエラーJSONを返した場合の確認
+	var apiError struct {
+		Error string `json:"error"`
+	}
+
+	if err := json.Unmarshal(raw, &apiError); err != nil {
+		return nil, err
+	}
+
+	if apiError.Error != "" {
+		return nil, fmt.Errorf("N2YO APIエラー: %s", apiError.Error)
+	}
+
+	// 正常なJSONをN2YOResponseに変換
 
 	var data model.N2YOResponse
 
