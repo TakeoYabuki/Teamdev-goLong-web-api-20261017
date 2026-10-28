@@ -143,3 +143,57 @@ func TestPassesHandler(t *testing.T) {
 		})
 	}
 }
+func TestPassDetailHandler(t *testing.T) {
+	getPassDetail := func(cityID, passID string) (model.Pass, bool) {
+		if cityID == "tokyo" && passID == "tokyo_1792402930" {
+			return model.Pass{ID: passID, Visibility: model.VisibilityGood}, true
+		}
+		return model.Pass{}, false
+	}
+
+	tests := []struct {
+		name       string
+		method     string
+		id         string
+		query      string
+		wantStatus int
+		wantCode   string
+	}{
+		{"保存した通過を返す", http.MethodGet, "tokyo_1792402930", "?city=tokyo", http.StatusOK, ""},
+		{"保存にないIDは404", http.MethodGet, "tokyo_1", "?city=tokyo", http.StatusNotFound, model.CodeNotFound},
+		{"別の都市では404", http.MethodGet, "tokyo_1792402930", "?city=osaka", http.StatusNotFound, model.CodeNotFound},
+		{"cityがないと400", http.MethodGet, "tokyo_1792402930", "", http.StatusBadRequest, model.CodeInvalidParameter},
+		{"知らないパラメータは400", http.MethodGet, "tokyo_1792402930", "?city=tokyo&page=1", http.StatusBadRequest, model.CodeInvalidParameter},
+		{"GET以外は405", http.MethodPost, "tokyo_1792402930", "?city=tokyo", http.StatusMethodNotAllowed, model.CodeMethodNotAllowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "/api/iss/passes/"+tt.id+tt.query, nil)
+			req.SetPathValue("id", tt.id)
+
+			passDetailHandler(rec, req, getPassDetail)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if tt.wantCode == "" {
+				var body model.Pass
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatalf("JSONを読めません: %v", err)
+				}
+				if body.ID != tt.id {
+					t.Errorf("id = %q, want %q", body.ID, tt.id)
+				}
+				return
+			}
+			var body model.ErrorResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("JSONを読めません: %v", err)
+			}
+			if body.Error.Code != tt.wantCode {
+				t.Errorf("error.code = %q, want %q", body.Error.Code, tt.wantCode)
+			}
+		})
+	}
+}
