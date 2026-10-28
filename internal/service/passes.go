@@ -32,6 +32,7 @@ type PassesQuery struct {
 var (
 	passesCache   = newCityCache[[]model.Pass]()
 	forecastCache = newCityCache[*model.CloudForecast]()
+	passSnapshots = newSnapshotStore()
 )
 
 func GetPasses(ctx context.Context, query PassesQuery) (model.PassesResponse, error) {
@@ -52,7 +53,19 @@ func GetPasses(ctx context.Context, query PassesQuery) (model.PassesResponse, er
 		forecast = nil
 	}
 
-	return buildPassesResponse(query, passes, predictionsFetchedAt, forecast, time.Now()), nil
+	now := time.Now()
+	response := buildPassesResponse(query, passes, predictionsFetchedAt, forecast, now)
+
+	passSnapshots.save(location.ID, response.Passes, now)
+	if response.NextCandidate != nil {
+		passSnapshots.save(location.ID, []model.Pass{*response.NextCandidate}, now)
+	}
+
+	return response, nil
+}
+
+func GetPassDetail(cityID, passID string) (model.Pass, bool) {
+	return passSnapshots.get(cityID, passID, time.Now())
 }
 
 func buildPassesResponse(

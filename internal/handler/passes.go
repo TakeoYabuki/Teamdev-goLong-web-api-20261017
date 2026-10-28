@@ -66,6 +66,42 @@ func passesHandler(
 	WriteJSON(w, http.StatusOK, response)
 }
 
+func PassDetailHandler(w http.ResponseWriter, r *http.Request) {
+	passDetailHandler(w, r, service.GetPassDetail)
+}
+
+func passDetailHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	getPassDetail func(cityID, passID string) (model.Pass, bool),
+) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		WriteError(w, http.StatusMethodNotAllowed, model.CodeMethodNotAllowed, "GETを使用してください")
+		return
+	}
+
+	params := r.URL.Query()
+	if err := checkQuery(params, "city"); err != nil {
+		WriteError(w, http.StatusBadRequest, model.CodeInvalidParameter, err.Error())
+		return
+	}
+
+	location, ok := findLocation(params.Get("city"))
+	if !ok {
+		WriteError(w, http.StatusBadRequest, model.CodeInvalidParameter, "cityに対応する都市IDを指定してください")
+		return
+	}
+
+	pass, found := getPassDetail(location.ID, r.PathValue("id"))
+	if !found {
+		WriteError(w, http.StatusNotFound, model.CodeNotFound, "詳細を取得できません。一覧を更新してください")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, pass)
+}
+
 func parsePassesQuery(params url.Values) (service.PassesQuery, error) {
 	if err := checkQuery(params, "city", "visibility", "minElevation", "sort", "page", "limit"); err != nil {
 		return service.PassesQuery{}, err
