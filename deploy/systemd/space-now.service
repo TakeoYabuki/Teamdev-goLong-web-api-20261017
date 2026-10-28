@@ -1,0 +1,16 @@
+[Unit]
+Description=Space now Go API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=space-now
+Group=space-now
+WorkingDirectory=/opt/space-now
+ExecStart=/opt/space-now/space-now
+Environment=PORT=8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

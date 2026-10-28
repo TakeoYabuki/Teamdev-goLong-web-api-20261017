@@ -28,7 +28,7 @@ func main() {
 
 	log.Println("サーバを起動します: http://localhost:" + port)
 
-	if err := http.ListenAndServe(":"+port, handler.WithCORS(mux)); err != nil {
+	if err := http.ListenAndServe("127.0.0.1:"+port, handler.WithCORS(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
