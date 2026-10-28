@@ -32,7 +32,7 @@ const PASSES_PER_PAGE = 3;
 
 // API完成後は false に変更する。
 // 一覧と詳細を同時に切り替える。
-const USE_MOCK_PASSES = true;
+const USE_MOCK_PASSES = false;
 
 // 現在のページ
 let currentPage = 1;
