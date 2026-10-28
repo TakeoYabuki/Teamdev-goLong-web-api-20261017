@@ -18,6 +18,7 @@ func main() {
 	mux.HandleFunc("/api/iss/now", handler.IssNowHandler)
 	//internal/handler/locations.goへのルーティン
 	mux.HandleFunc("/api/locations/search", handler.LocationHandler)
+	mux.HandleFunc("/api/iss/passes", handler.PassesHandler)
 	mux.HandleFunc("/", handler.NotFoundHandler)
 
 	port := os.Getenv("PORT")
