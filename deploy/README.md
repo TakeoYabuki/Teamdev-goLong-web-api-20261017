@@ -8,14 +8,14 @@
 - systemd：Go APIの常時起動・自動起動
 - 配置先：`/opt/space-now`
 - Go API：`127.0.0.1:8000`
-- 配置ブランチ：`chore/deployment`
+- 配置ブランチ：`main`
 
 公開URL：
 
 - デモ：https://143.198.80.71/web/
 - APIドキュメント：https://143.198.80.71/docs/
 
-通過一覧・詳細はモックを使用し、都市一覧とISS現在位置は実APIへ接続しています。
+都市一覧・ISS現在位置・次回候補・通過一覧・通過詳細は、すべて実APIへ接続しています。
 
 HTTPSにはLet’s EncryptのIPアドレス用証明書を使用しています。
 Certbotで自動更新し、更新後はdeploy hookでNginxを再読み込みします。
@@ -65,7 +65,7 @@ Goは、go.modで指定されたバージョンを満たす公式配布版をイ
 ### 2. コードの取得とビルド
 
 ```bash
-git clone --branch chore/deployment --single-branch \
+git clone --branch main --single-branch \
   https://github.com/TakeoYabuki/Teamdev-goLong-web-api-20261017.git \
   /opt/space-now
 
@@ -210,7 +210,7 @@ IPアドレス用証明書の有効期間は約6日間なので、
 
 ```bash
 cd /opt/space-now
-git pull --ff-only origin chore/deployment
+git pull --ff-only origin main
 ```
 
 これらのファイルだけの変更なら、
@@ -223,7 +223,7 @@ Goの再ビルドやサービスの再起動は不要です。
 
 ```bash
 cd /opt/space-now
-git pull --ff-only origin chore/deployment
+git pull --ff-only origin main
 /usr/local/go/bin/go build -o /opt/space-now/space-now.new .
 ```
 
@@ -239,7 +239,7 @@ systemctl status space-now --no-pager
 
 ```bash
 cd /opt/space-now
-git pull --ff-only origin chore/deployment
+git pull --ff-only origin main
 
 cp /etc/nginx/sites-available/space-now /etc/nginx/space-now.previous.conf
 cp deploy/nginx/space-now.conf /etc/nginx/sites-available/space-now
@@ -293,8 +293,3 @@ journalctl -u space-now -n 50 --no-pager
 tail -n 50 /var/log/nginx/error.log
 tail -n 50 /var/log/letsencrypt/letsencrypt.log
 ```
-
-## 今後の対応
-
-- 詳細API完成後の通過一覧・詳細の実API接続
-- mainへのマージ後、配置ブランチと本手順の更新

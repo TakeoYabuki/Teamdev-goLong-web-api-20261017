@@ -1,198 +1,564 @@
 openapi: 3.0.3
-
 info:
     title: Space now API
-    description: |
-        ISSの現在位置と都市別の通過予測を提供するAPI
+    version: 1.0.0
+    description: |-
+        ISSの現在位置と、固定都市の代表地点からの通過予測を提供するAPIです。
 
         ## 共通仕様
-        - 正常・エラーともに Content-Type は application/json
-        - 日時は日本時間の RFC 3339 形式（例：2026-10-19T18:42:10+09:00）
-        - メソッドは GET のみ。GET 以外は 405（Allow: GET を付与）
-        - 定義されていないパスは 404（NOT_FOUND）
-        - 開発用に Access-Control-Allow-Origin: * を付与
-        - エラーはすべて ErrorResponse の形式で返す
+        - Go APIの正常応答と、ハンドラーが返すエラーのContent-Typeは application/json です。
+        - 日時は日本時間（UTC+09:00）のRFC 3339形式です。
+        - 各APIはGETのみ受け付けます。他のメソッドには405と Allow: GET を返します。
+        - 未定義のAPIパスには404（NOT_FOUND）を返します。
+        - Go APIのハンドラーが返すエラーはErrorResponse形式です。
+        - Nginxなどが返すエラーや、通信切断時の応答は上記形式とは限りません。
+        - このAPIを呼ぶクライアント用のAPIキーは不要です。
+        - 通過予測の取得には、サーバー側でN2YO_API_KEYの設定が必要です。
 
-        TODO（担当: B）：エラーコードの一覧、CORS、キャッシュの方針を追記する
-    version: 1.0.0
+        ## エラーコード
+        | HTTPステータス | code | 意味 |
+        | --- | --- | --- |
+        | 400 | INVALID_PARAMETER | パラメータが不正 |
+        | 404 | NOT_FOUND | APIパスまたは保存された通過詳細が存在しない |
+        | 405 | METHOD_NOT_ALLOWED | GET以外のメソッド |
+        | 502 | UPSTREAM_ERROR | 外部APIからのデータ取得に失敗 |
+        | 504 | UPSTREAM_TIMEOUT | 外部APIからのデータ取得がタイムアウト |
 
+        現在の実装では、INTERNAL_ERRORを返す500応答は定義していません。
+
+        ## CORS
+        Go APIの応答には Access-Control-Allow-Origin: * を付与します。
+        現在のミドルウェアはこのヘッダーを付ける処理のみです。
+        OPTIONSによるプリフライトの専用処理や、資格情報付きCORSには対応していません。
+
+        ## キャッシュと保存
+        - ISS現在位置：5秒間キャッシュします。
+        - N2YOの通過予測：都市ごとに1時間キャッシュします。
+        - Open-Meteoの雲量予報：都市ごとに1時間キャッシュします。
+        - キャッシュ期限後、次のリクエスト時に外部APIから取得します。
+        - 一覧の指定ページと次回候補の詳細を、都市ID・通過IDごとに保存します。
+        - 同じ通過を一覧または次回候補として返すたびに、保存内容と保存時刻を更新します。
+        - 詳細は最後に保存・更新した時刻から24時間保持します。
+        - 古い一覧を画面に表示したまま、別のリクエストで保存内容が更新された場合は、表示中の一覧と詳細の雲量・判定が異なることがあります。
+        - キャッシュと詳細データはメモリ内に保存するため、サーバー再起動で失われます。
 servers:
-    - url: /
-
+    -   url: /
+        description: ドキュメントと同じホストのAPI
 tags:
-    - name: ISS
-      description: ISSの現在位置と通過予測
-    - name: 都市
-      description: 固定都市検索マスターの検索
-    - name: システム
-      description: 動作確認用
-
+    -   name: ISS
+        description: ISSの現在位置と通過予測
+    -   name: 都市
+        description: 固定都市マスターの検索
+    -   name: システム
+        description: サーバーの動作確認
 paths:
     /api/health:
         get:
-            tag: [システム]
+            tags:
+                - システム
             x-owner: B
-            summary: サーバの起動確認
-            description: TODO
+            summary: サーバーの起動確認
+            description: Go APIがリクエストに応答できることを確認します。外部APIへの疎通やAPIキーの設定状態は確認しません。
             responses:
-                "200":
-                    description: 正常に動作しています
+                '200':
+                    description: Go APIは応答可能です。
                     content:
                         application/json:
                             schema:
-                                type: object
-                                required:
-                                    - status
-                                properties:
-                                    status:
-                                        type: string
-                                        example: OK
-    # -----------------------------------
+                                $ref: '#/components/schemas/HealthResponse'
+                            example:
+                                status: OK
+                '405':
+                    $ref: '#/components/responses/MethodNotAllowed'
     /api/iss/now:
         get:
-            tags: [ISS]
+            tags:
+                - ISS
             x-owner: A
             summary: ISSの現在位置とデータ時刻
-            description: TODO
+            description: Where the ISS at?からISSの緯度・経度・高度・速度を取得します。成功した結果は5秒間キャッシュします。クエリパラメータは不要です。
             responses:
-                "200":
-                    description:
+                '200':
+                    description: ISSの現在位置
                     content:
                         application/json:
                             schema:
-
-    # -----------------------------------
+                                $ref: '#/components/schemas/ISSPosition'
+                            example:
+                                lat: 35.6812
+                                lon: 139.7671
+                                altitudeKm: 420.5
+                                velocityKmh: 27580.2
+                                positionAt: '2026-10-29T09:00:00+09:00'
+                                fetchedAt: '2026-10-29T09:00:01+09:00'
+                '405':
+                    $ref: '#/components/responses/MethodNotAllowed'
+                '502':
+                    $ref: '#/components/responses/ISSUpstreamError'
+                '504':
+                    $ref: '#/components/responses/ISSUpstreamTimeout'
     /api/iss/passes:
         get:
-            tags: [ISS]
-            x-owner: A （雲量の照合と判定の説明は B）
-            summary:
-            description: TODO
-            responses:
-                "200":
-                    description:
-                    content:
-                        application/json:
-                            schema:
-    # -----------------------------------
-    /api/iss/passes{id}:
-        get:
-            tags: [ISS]
-            x-owner: A
-            summary: 通過1件の詳細と判定理由
-            description: TODO（スナップショットの保持期間、404になる条件）
-            parameters:
+            tags:
+                - ISS
+            x-owner: A・B
+            summary: 今後72時間の通過予測・次回候補・集計
+            description: |-
+                指定した都市の代表地点について、N2YOの可視通過予測に雲量を照合して返します。
+                対象は開始時刻がfrom以上、to未満の通過です。toはfromの72時間後です。
 
+                ## 絞り込み・集計・次回候補
+                - visibilityとminElevationはAND条件です。visibility内の複数値はOR条件です。
+                - passesは絞り込み・並べ替え・ページ分け後の一覧です。
+                - totalとtotalPagesは絞り込み後の件数・ページ数です。
+                - summaryは絞り込み前の対象期間全体の集計です。
+                - nextCandidateは絞り込み前の対象期間で開始時刻が最も早い通過です。おすすめ度が最も高い通過を選ぶ処理ではありません。
+                - 該当なしや範囲外ページは200と空配列を返します。nextCandidateは候補がない場合にnullです。
+                - 未知のパラメータ名、同一パラメータの重複指定、空文字は400です。
+
+                ## 並べ替え
+                昇順が既定です。キーの先頭に-を付けると降順になります。
+                cloudCoverがnullの通過は昇順・降順とも末尾です。
+                同値の場合は開始時刻の昇順、さらに同値なら通過IDの昇順です。
+
+                ## 雲量の照合
+                最大仰角の時刻に最も近い1時間ごとの予報を使用します。
+                時刻差が30分を超える場合、または値が欠けている場合はcloudCoverとweatherAtがnullです。
+                天気取得に失敗しても通過予測が取得できれば200を返し、weatherFetchedAtもnullにします。
+
+                ## 見やすさの判定順序
+                1. 雲量70%以上、または最大仰角20度未満ならpoor（条件が厳しい）。
+                2. 上記に該当せず、雲量または明るさが不明ならunknown（判定不明）。
+                3. 雲量30%未満・最大仰角40度以上・明るさ-2等級以下をすべて満たすならgood（良好）。
+                4. その他はfair（通常）。
+
+                これは観測条件の目安であり、実際に見えることを保証するものではありません。
+            parameters:
+                -   $ref: '#/components/parameters/City'
+                -   name: visibility
+                    in: query
+                    required: false
+                    description: 見やすさ。複数値はカンマ区切りで指定します。省略時はすべてです。
+                    style: form
+                    explode: false
+                    schema:
+                        type: array
+                        minItems: 1
+                        items:
+                            $ref: '#/components/schemas/Visibility'
+                    example:
+                        - good
+                        - fair
+                -   name: minElevation
+                    in: query
+                    required: false
+                    description: 最大仰角の下限（度）。指定値以上を対象とします。省略時は制限しません。
+                    schema:
+                        type: number
+                        format: double
+                        minimum: 0
+                        maximum: 90
+                    example: 20
+                -   name: sort
+                    in: query
+                    required: false
+                    description: 並べ替えキー。startは開始時刻、maxElevationは最大仰角、cloudCoverは雲量です。先頭の-は降順です。
+                    schema:
+                        type: string
+                        enum:
+                            - start
+                            - -start
+                            - maxElevation
+                            - -maxElevation
+                            - cloudCover
+                            - -cloudCover
+                        default: start
+                -   $ref: '#/components/parameters/Page'
+                -   $ref: '#/components/parameters/Limit'
             responses:
-                "200":
-                    description:
+                '200':
+                    description: 指定都市の通過予測、次回候補、集計、ページ情報
                     content:
                         application/json:
                             schema:
-    # -----------------------------------
+                                $ref: '#/components/schemas/PassesResponse'
+                            examples:
+                                withPass:
+                                    summary: 通過予測がある場合の説明用サンプル
+                                    value:
+                                        location:
+                                            id: tokyo
+                                            name: 東京都心
+                                            lat: 35.6812
+                                            lon: 139.7671
+                                        from: '2026-10-29T00:43:13+09:00'
+                                        to: '2026-11-01T00:43:13+09:00'
+                                        nextCandidate:
+                                            id: tokyo_1793304555
+                                            start:
+                                                time: '2026-10-30T05:09:15+09:00'
+                                                direction: 北西
+                                                azimuth: 322.61
+                                                elevation: 5.31
+                                            max:
+                                                time: '2026-10-30T05:14:20+09:00'
+                                                direction: 北東
+                                                azimuth: 30.82
+                                                elevation: 20.09
+                                            end:
+                                                time: '2026-10-30T05:19:15+09:00'
+                                                direction: 東
+                                                azimuth: 97.78
+                                                elevation: 0.48
+                                            durationSec: 515
+                                            magnitude: -0.4
+                                            cloudCover: 74
+                                            weatherAt: '2026-10-30T05:00:00+09:00'
+                                            visibility: poor
+                                            reasons:
+                                                - 雲量が70%以上
+                                            message: 05:09ごろ北西の空が観測候補です。観測おすすめ度は条件が厳しいです。
+                                        summary:
+                                            total: 1
+                                            good: 0
+                                            fair: 0
+                                            poor: 1
+                                            unknown: 0
+                                        passes:
+                                            -   id: tokyo_1793304555
+                                                start:
+                                                    time: '2026-10-30T05:09:15+09:00'
+                                                    direction: 北西
+                                                    azimuth: 322.61
+                                                    elevation: 5.31
+                                                max:
+                                                    time: '2026-10-30T05:14:20+09:00'
+                                                    direction: 北東
+                                                    azimuth: 30.82
+                                                    elevation: 20.09
+                                                end:
+                                                    time: '2026-10-30T05:19:15+09:00'
+                                                    direction: 東
+                                                    azimuth: 97.78
+                                                    elevation: 0.48
+                                                durationSec: 515
+                                                magnitude: -0.4
+                                                cloudCover: 74
+                                                weatherAt: '2026-10-30T05:00:00+09:00'
+                                                visibility: poor
+                                                reasons:
+                                                    - 雲量が70%以上
+                                                message: 05:09ごろ北西の空が観測候補です。観測おすすめ度は条件が厳しいです。
+                                        page: 1
+                                        limit: 3
+                                        total: 1
+                                        totalPages: 1
+                                        predictionsFetchedAt: '2026-10-29T00:43:11+09:00'
+                                        weatherFetchedAt: '2026-10-29T00:43:13+09:00'
+                                noPass:
+                                    summary: 対象期間に通過予測がない場合
+                                    value:
+                                        location:
+                                            id: tokyo
+                                            name: 東京都心
+                                            lat: 35.6812
+                                            lon: 139.7671
+                                        from: '2026-10-29T00:43:13+09:00'
+                                        to: '2026-11-01T00:43:13+09:00'
+                                        nextCandidate: null
+                                        summary:
+                                            total: 0
+                                            good: 0
+                                            fair: 0
+                                            poor: 0
+                                            unknown: 0
+                                        passes: []
+                                        page: 1
+                                        limit: 3
+                                        total: 0
+                                        totalPages: 0
+                                        predictionsFetchedAt: '2026-10-29T00:43:11+09:00'
+                                        weatherFetchedAt: '2026-10-29T00:43:13+09:00'
+                '400':
+                    $ref: '#/components/responses/InvalidParameter'
+                '405':
+                    $ref: '#/components/responses/MethodNotAllowed'
+                '502':
+                    $ref: '#/components/responses/PassesUpstreamError'
+                '504':
+                    $ref: '#/components/responses/PassesUpstreamTimeout'
+    /api/iss/passes/{id}:
+        get:
+            tags:
+                - ISS
+            x-owner: A・B
+            summary: 通過1件の詳細と判定理由
+            description: |-
+                通過一覧または次回候補として返された通過IDと、対象の都市IDを指定します。
+                応答は一覧のpasses内の1件と同じPass構造です。外部APIへの再取得は行いません。
+
+                一覧の指定ページと次回候補のデータのみ保存されます。
+                同じ都市ID・通過IDも、一覧または次回候補として返すたびに最新の内容で上書きします。
+                保持期間は最後に保存・更新した時刻から24時間です。
+                古い一覧を画面に表示したまま、別のリクエストで保存内容が更新された場合は、表示中の一覧と詳細の雲量・判定が異なることがあります。
+                その場合は一覧を再取得してください。
+
+                未保存のID、保持期限切れ、またはそのIDが保存されていない別の有効な都市IDの場合は404です。
+                サーバー再起動でも保存データは失われます。404の場合は通過一覧を再取得してください。
+                都市IDの未指定・不正、未知のパラメータ名、重複指定、空文字は400です。
+            parameters:
+                -   name: id
+                    in: path
+                    required: true
+                    description: 一覧または次回候補で取得した通過ID。サンプルIDは実際の保存データの存在を保証しません。
+                    schema:
+                        type: string
+                    example: tokyo_1793304555
+                -   $ref: '#/components/parameters/City'
+            responses:
+                '200':
+                    description: 保存されている通過の詳細と判定理由
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Pass'
+                            example:
+                                id: tokyo_1793304555
+                                start:
+                                    time: '2026-10-30T05:09:15+09:00'
+                                    direction: 北西
+                                    azimuth: 322.61
+                                    elevation: 5.31
+                                max:
+                                    time: '2026-10-30T05:14:20+09:00'
+                                    direction: 北東
+                                    azimuth: 30.82
+                                    elevation: 20.09
+                                end:
+                                    time: '2026-10-30T05:19:15+09:00'
+                                    direction: 東
+                                    azimuth: 97.78
+                                    elevation: 0.48
+                                durationSec: 515
+                                magnitude: -0.4
+                                cloudCover: 74
+                                weatherAt: '2026-10-30T05:00:00+09:00'
+                                visibility: poor
+                                reasons:
+                                    - 雲量が70%以上
+                                message: 05:09ごろ北西の空が観測候補です。観測おすすめ度は条件が厳しいです。
+                '400':
+                    $ref: '#/components/responses/InvalidParameter'
+                '404':
+                    $ref: '#/components/responses/PassNotFound'
+                '405':
+                    $ref: '#/components/responses/MethodNotAllowed'
     /api/locations/search:
         get:
-            tags: [都市]
+            tags:
+                - 都市
             x-owner: C
             summary: 固定都市の検索・一覧
-            description: |
-                固定都市マスターを表示名の部分一致で検索します。
-                qを省略すると、すべての都市をページ分けして返します。
-                並び順は都市マスターの登録順です。
+            description: |-
+                固定都市マスター（47都市）の表示名を部分一致で検索します。
+                qを省略するとすべての都市を対象にします。並び順は都市マスターの登録順です。
+                latとlonは各都市の代表地点で、ユーザーの現在位置ではありません。
                 該当なし・範囲外ページでは200と空配列を返します。
-                未知のパラメータ名・同じパラメータの重複指定・空文字は400です。
+                未知のパラメータ名、同じパラメータの重複指定、空文字は400です。
             parameters:
-                - name: q
-                  in: query
-                  required: false
-                  description: |
-                    検索する都市名。
-                    前後の空白を除いて1〜50文字で指定します。
-                    空文字・空白のみは指定できません。
-                    省略した場合は、すべての都市を検索対象にします。
-                  schema: 
-                    type: string
-                  example: 鹿児島
-
-                - name: page
-                  in: query
-                  required: false
-                  description: ページ番号。省略時は1です。
-                  schema:
-                      type: integer
-                      minimum: 1
-                      default: 1
-
-                - name: limit
-                  in: query
-                  required: false
-                  description: 1ページの取得件数。省略時は10です。
-                  schema:
-                      type: integer
-                      minimum: 1
-                      maximum: 50
-                      default: 10
+                -   name: q
+                    in: query
+                    required: false
+                    description: 検索する都市名。前後の空白を除いて1〜50文字。空文字・空白のみは不可。省略時はすべての都市が対象です。長さは空白除去後に判定します。
+                    schema:
+                        type: string
+                    example: 鹿児島
+                -   $ref: '#/components/parameters/Page'
+                -   $ref: '#/components/parameters/Limit'
             responses:
-                "200":
+                '200':
                     description: 検索結果
                     content:
                         application/json:
                             schema:
-                                $ref: "#/components/schemas/LocationSearchResponse"
-                            example: 
-                              query: 鹿児島
-                              results:
-                                  - id: kagoshima
-                                    name: 鹿児島市
-                                    lat: 31.5966
-                                    lon: 130.5571
-                              page: 1
-                              limit: 10
-                              total: 1
-                              totalPages: 1
-                "400":
-                    description: パラメータが不正
+                                $ref: '#/components/schemas/LocationSearchResponse'
+                            example:
+                                query: 鹿児島
+                                results:
+                                    -   id: kagoshima
+                                        name: 鹿児島市
+                                        lat: 31.5966
+                                        lon: 130.5571
+                                page: 1
+                                limit: 10
+                                total: 1
+                                totalPages: 1
+                '400':
+                    description: パラメータが不正です。
                     content:
                         application/json:
                             schema:
-                                $ref: "#/components/schemas/ErrorResponse"
+                                $ref: '#/components/schemas/ErrorResponse'
                             example:
                                 error:
                                     code: INVALID_PARAMETER
                                     message: pageは1以上の整数で指定してください
-
-                "405":
-                    description: GET以外のメソッドは使用できません
-                    headers:
-                        Allow:
-                            schema:
-                                type: string
-                                example: GET
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ErrorResponse"
-                            example:
-                                error:
-                                    code: METHOD_NOT_ALLOWED
-                                    message: GETを使用してください
-
-                "500":
-                    description: 想定外の内部エラー
-                    content:
-                        application/json:
-                            schema:
-                                $ref: "#/components/schemas/ErrorResponse"
-                            example:
-                                error:
-                                    code: INTERNAL_ERROR
-                                    message: 内部エラーが発生しました
-
-# ==================================================
-# 共通の部品
-# ==================================================
+                '405':
+                    $ref: '#/components/responses/MethodNotAllowed'
 components:
+    parameters:
+        City:
+            name: city
+            in: query
+            required: true
+            description: 固定都市マスターに登録されている都市ID。都市検索APIのresults[].idを指定します。
+            schema:
+                type: string
+            example: tokyo
+        Page:
+            name: page
+            in: query
+            required: false
+            description: ページ番号。範囲外のページでは空配列を返します。
+            schema:
+                type: integer
+                minimum: 1
+                default: 1
+        Limit:
+            name: limit
+            in: query
+            required: false
+            description: 1ページの取得件数。
+            schema:
+                type: integer
+                minimum: 1
+                maximum: 50
+                default: 10
+    responses:
+        InvalidParameter:
+            description: パラメータが不正です。messageは原因に応じて変わります。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: INVALID_PARAMETER
+                            message: cityに対応する都市IDを指定してください
+        MethodNotAllowed:
+            description: GET以外のメソッドは使用できません。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: METHOD_NOT_ALLOWED
+                            message: GETを使用してください
+            headers:
+                Allow:
+                    description: 使用可能なメソッド
+                    schema:
+                        type: string
+                        enum:
+                            - GET
+                    example: GET
+        PassNotFound:
+            description: 指定した都市・通過IDの保存データが存在しない、または保持期限切れです。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: NOT_FOUND
+                            message: 詳細を取得できません。一覧を更新してください
+        ISSUpstreamError:
+            description: ISS現在位置を取得できませんでした。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: UPSTREAM_ERROR
+                            message: ISSの位置情報を取得できませんでした
+        ISSUpstreamTimeout:
+            description: ISS現在位置の取得がタイムアウトしました。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: UPSTREAM_TIMEOUT
+                            message: ISSの位置情報の取得がタイムアウトしました
+        PassesUpstreamError:
+            description: 通過予測を取得できませんでした。サーバー側のN2YO_API_KEY未設定時もこの応答です。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: UPSTREAM_ERROR
+                            message: 通過予測を取得できませんでした
+        PassesUpstreamTimeout:
+            description: 通過予測の取得がタイムアウトしました。
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    example:
+                        error:
+                            code: UPSTREAM_TIMEOUT
+                            message: 通過予測の取得がタイムアウトしました
     schemas:
+        HealthResponse:
+            type: object
+            required:
+                - status
+            properties:
+                status:
+                    type: string
+                    description: サーバーの応答状態
+                    enum:
+                        - OK
+                    example: OK
+        ISSPosition:
+            type: object
+            required:
+                - lat
+                - lon
+                - altitudeKm
+                - velocityKmh
+                - positionAt
+                - fetchedAt
+            properties:
+                lat:
+                    type: number
+                    description: 緯度（度）
+                    format: double
+                lon:
+                    type: number
+                    description: 経度（度）
+                    format: double
+                altitudeKm:
+                    type: number
+                    description: 高度（km）
+                    format: double
+                velocityKmh:
+                    type: number
+                    description: 速度（km/h）
+                    format: double
+                positionAt:
+                    type: string
+                    description: 外部APIが示す位置データの時刻
+                    format: date-time
+                fetchedAt:
+                    type: string
+                    description: サーバーが位置情報を取得した時刻
+                    format: date-time
         Location:
             type: object
             required:
@@ -211,12 +577,253 @@ components:
                     example: 鹿児島市
                 lat:
                     type: number
-                    format: double
                     description: 代表地点の緯度（度）
+                    format: double
                 lon:
                     type: number
-                    format: double
                     description: 代表地点の経度（度）
+                    format: double
+        Visibility:
+            type: string
+            description: good：良好、fair：通常、poor：条件が厳しい、unknown：判定不明。
+            enum:
+                - good
+                - fair
+                - poor
+                - unknown
+        PassPoint:
+            type: object
+            required:
+                - time
+                - direction
+                - azimuth
+                - elevation
+            properties:
+                time:
+                    type: string
+                    description: 該当地点を通過する時刻
+                    format: date-time
+                direction:
+                    type: string
+                    description: 方位角から変換した日本語8方位
+                    enum:
+                        - 北
+                        - 北東
+                        - 東
+                        - 南東
+                        - 南
+                        - 南西
+                        - 西
+                        - 北西
+                azimuth:
+                    type: number
+                    description: 方位角（度）。北0度、東90度、南180度、西270度。
+                    format: double
+                elevation:
+                    type: number
+                    description: 仰角（度）。水平が0度、真上が90度。
+                    format: double
+        Pass:
+            type: object
+            required:
+                - id
+                - start
+                - max
+                - end
+                - durationSec
+                - magnitude
+                - cloudCover
+                - weatherAt
+                - visibility
+                - reasons
+                - message
+            properties:
+                id:
+                    type: string
+                    description: 都市IDとN2YOの開始UNIX時刻から生成した通過ID
+                    example: tokyo_1793304555
+                start:
+                    $ref: '#/components/schemas/PassPoint'
+                max:
+                    $ref: '#/components/schemas/PassPoint'
+                end:
+                    $ref: '#/components/schemas/PassPoint'
+                durationSec:
+                    type: integer
+                    description: N2YOが返した可視通過の継続時間（秒）。end.timeとstart.timeの差と一致するとは限りません。
+                magnitude:
+                    type: number
+                    description: 見かけの明るさ（等級）。値が小さいほど明るく、不明の場合はnull。
+                    format: double
+                    nullable: true
+                cloudCover:
+                    type: number
+                    description: 最大仰角の時刻に照合した雲量（%）。不明の場合はnull。
+                    format: double
+                    minimum: 0
+                    maximum: 100
+                    nullable: true
+                weatherAt:
+                    type: string
+                    description: 照合した雲量予報の対象時刻。不明の場合はnull。
+                    format: date-time
+                    nullable: true
+                visibility:
+                    $ref: '#/components/schemas/Visibility'
+                reasons:
+                    type: array
+                    description: 判定理由
+                    items:
+                        type: string
+                message:
+                    type: string
+                    description: 開始時刻・開始方位・見やすさの案内文
+            description: 1件の可視通過予測。startは開始、maxは最大仰角、endは終了時点です。
+        PassSummary:
+            type: object
+            required:
+                - total
+                - good
+                - fair
+                - poor
+                - unknown
+            properties:
+                total:
+                    type: integer
+                    description: 絞り込み前の対象期間全体の通過件数
+                    minimum: 0
+                good:
+                    type: integer
+                    description: 良好の件数
+                    minimum: 0
+                fair:
+                    type: integer
+                    description: 通常の件数
+                    minimum: 0
+                poor:
+                    type: integer
+                    description: 条件が厳しい件数
+                    minimum: 0
+                unknown:
+                    type: integer
+                    description: 判定不明の件数
+                    minimum: 0
+        PassesResponse:
+            type: object
+            required:
+                - location
+                - from
+                - to
+                - nextCandidate
+                - summary
+                - passes
+                - page
+                - limit
+                - total
+                - totalPages
+                - predictionsFetchedAt
+                - weatherFetchedAt
+            properties:
+                location:
+                    $ref: '#/components/schemas/Location'
+                from:
+                    type: string
+                    description: 対象期間の開始（含む）。一覧応答の構築時刻。
+                    format: date-time
+                to:
+                    type: string
+                    description: 対象期間の終了（含まない）。fromの72時間後。
+                    format: date-time
+                nextCandidate:
+                    type: object
+                    required:
+                        - id
+                        - start
+                        - max
+                        - end
+                        - durationSec
+                        - magnitude
+                        - cloudCover
+                        - weatherAt
+                        - visibility
+                        - reasons
+                        - message
+                    properties:
+                        id:
+                            type: string
+                            description: 都市IDとN2YOの開始UNIX時刻から生成した通過ID
+                            example: tokyo_1793304555
+                        start:
+                            $ref: '#/components/schemas/PassPoint'
+                        max:
+                            $ref: '#/components/schemas/PassPoint'
+                        end:
+                            $ref: '#/components/schemas/PassPoint'
+                        durationSec:
+                            type: integer
+                            description: N2YOが返した可視通過の継続時間（秒）。end.timeとstart.timeの差と一致するとは限りません。
+                        magnitude:
+                            type: number
+                            description: 見かけの明るさ（等級）。値が小さいほど明るく、不明の場合はnull。
+                            format: double
+                            nullable: true
+                        cloudCover:
+                            type: number
+                            description: 最大仰角の時刻に照合した雲量（%）。不明の場合はnull。
+                            format: double
+                            minimum: 0
+                            maximum: 100
+                            nullable: true
+                        weatherAt:
+                            type: string
+                            description: 照合した雲量予報の対象時刻。不明の場合はnull。
+                            format: date-time
+                            nullable: true
+                        visibility:
+                            $ref: '#/components/schemas/Visibility'
+                        reasons:
+                            type: array
+                            description: 判定理由
+                            items:
+                                type: string
+                        message:
+                            type: string
+                            description: 開始時刻・開始方位・見やすさの案内文
+                    description: 絞り込み前の最も開始時刻が早い通過。候補がない場合はnull。
+                    nullable: true
+                summary:
+                    $ref: '#/components/schemas/PassSummary'
+                passes:
+                    type: array
+                    description: 絞り込み・並べ替え・ページ分け後の通過一覧。該当なしの場合は空配列。
+                    items:
+                        $ref: '#/components/schemas/Pass'
+                page:
+                    type: integer
+                    description: リクエストされたページ番号
+                    minimum: 1
+                limit:
+                    type: integer
+                    description: 1ページの取得件数
+                    minimum: 1
+                    maximum: 50
+                total:
+                    type: integer
+                    description: 絞り込み後の総件数
+                    minimum: 0
+                totalPages:
+                    type: integer
+                    description: 絞り込み後の総ページ数。0件なら0。
+                    minimum: 0
+                predictionsFetchedAt:
+                    type: string
+                    description: 通過予測を取得してキャッシュへ保存した時刻
+                    format: date-time
+                weatherFetchedAt:
+                    type: string
+                    description: 雲量予報を取得した時刻。予報取得に失敗した場合はnull。
+                    format: date-time
+                    nullable: true
         LocationSearchResponse:
             type: object
             required:
@@ -229,24 +836,29 @@ components:
             properties:
                 query:
                     type: string
-                    description: 前後の空白を除去した検索語。省略時は空文字
+                    description: 前後の空白を除去した検索語。q省略時は空文字。
                 results:
                     type: array
-                    description: 指定ページの都市一覧。該当なしの場合は空配列
+                    description: 指定ページの都市一覧。該当なしの場合は空配列。
                     items:
-                        $ref: "#/components/schemas/Location"
+                        $ref: '#/components/schemas/Location'
                 page:
                     type: integer
                     description: リクエストされたページ番号
+                    minimum: 1
                 limit:
                     type: integer
                     description: 1ページの取得件数
+                    minimum: 1
+                    maximum: 50
                 total:
                     type: integer
                     description: 検索に一致した都市の総件数
+                    minimum: 0
                 totalPages:
                     type: integer
-                    description: 総ページ数。検索結果が0件なら0
+                    description: 総ページ数。検索結果が0件なら0。
+                    minimum: 0
         ErrorResponse:
             type: object
             required:
@@ -260,8 +872,7 @@ components:
                     properties:
                         code:
                             type: string
-                            description: エラーコード
+                            description: エラーコード。共通仕様の一覧を参照してください。
                         message:
                             type: string
                             description: エラーの説明
-
