@@ -38,11 +38,9 @@ func (s *snapshotStore) save(cityID string, passes []model.Pass, now time.Time) 
 	}
 
 	for _, pass := range passes {
-		key := snapshotKey(cityID, pass.ID)
-		if _, exists := s.snapshots[key]; !exists {
-			s.snapshots[key] = passSnapshot{pass: pass, savedAt: now}
-		}
+		s.snapshots[snapshotKey(cityID, pass.ID)] = passSnapshot{pass: pass, savedAt: now}
 	}
+
 }
 
 func (s *snapshotStore) get(cityID, passID string, now time.Time) (model.Pass, bool) {
