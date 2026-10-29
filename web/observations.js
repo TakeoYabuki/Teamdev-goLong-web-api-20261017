@@ -30,10 +30,6 @@ const passesSort = document.getElementById("passes-sort");
 // 1ページに表示する件数
 const PASSES_PER_PAGE = 3;
 
-// API完成後は false に変更する。
-// 一覧と詳細を同時に切り替える。
-const USE_MOCK_PASSES = false;
-
 // 現在のページ
 let currentPage = 1;
 
@@ -109,11 +105,8 @@ function showPassesMessage(countdownText, message) {
     passesNext.disabled = true;
 }
 // ==================================================
-// 3. 通過情報の取得（現在はモック）
+// 3. 通過情報の取得
 // ==================================================
-// モックの基準時刻を固定する。
-// 再取得しても、同じ通過のIDが変わらないようにする。
-const MOCK_BASE_TIME = Math.floor(Date.now() / 1000) * 1000;
 
 // GET /api/iss/passes
 async function fetchISSPasses(cityId, options = {}) {
@@ -124,10 +117,6 @@ async function fetchISSPasses(cityId, options = {}) {
         page = 1,
         limit = 3,
     } = options;
-
-    if (USE_MOCK_PASSES) {
-        return createMockPassesResponse(cityId, options);
-    }
 
     // 都市IDをクエリパラメータにする
     const params = new URLSearchParams({
@@ -188,141 +177,11 @@ async function fetchPassesJSON(url, fallbackMessage) {
 }
 
 // ==================================================
-// モックデータ
-// ==================================================
-
-// 一覧と詳細で同じID・同じ内容の通過を作る
-function createMockPasses(cityId) {
-    const mockConditions = [
-        {
-            hoursLater: 2,
-            elevation: 62,
-            cloudCover: 20,
-            magnitude: -3,
-            visibility: "good",
-            reasons: ["雲量が少ない", "最大仰角が高い"],
-            message: "空の高い位置を通り、観測しやすい条件です。",
-        },
-        {
-            hoursLater: 26,
-            elevation: 35,
-            cloudCover: 45,
-            magnitude: -1.5,
-            visibility: "fair",
-            reasons: ["雲量が中程度"],
-            message: "雲の切れ間から見える可能性があります。",
-        },
-        {
-            hoursLater: 50,
-            elevation: 15,
-            cloudCover: 80,
-            magnitude: -1,
-            visibility: "poor",
-            reasons: ["雲量が多い", "最大仰角が低い"],
-            message: "観測には厳しい条件です。",
-        },
-    ];
-
-    return mockConditions.map((condition) => {
-        const startTime =
-            MOCK_BASE_TIME + condition.hoursLater * 60 * 60 * 1000;
-
-        const maxTime = startTime + 3 * 60 * 1000;
-        const endTime = startTime + 6 * 60 * 1000;
-
-        return {
-            id: `${cityId}_${Math.floor(startTime / 1000)}`,
-
-            start: {
-                time: new Date(startTime).toISOString(),
-                direction: "北西",
-                azimuth: 315,
-                elevation: 10,
-            },
-
-            max: {
-                time: new Date(maxTime).toISOString(),
-                direction: "北",
-                azimuth: 0,
-                elevation: condition.elevation,
-            },
-
-            end: {
-                time: new Date(endTime).toISOString(),
-                direction: "北東",
-                azimuth: 45,
-                elevation: 10,
-            },
-
-            durationSec: 360,
-            magnitude: condition.magnitude,
-            cloudCover: condition.cloudCover,
-            weatherAt: new Date(maxTime).toISOString(),
-            visibility: condition.visibility,
-            reasons: condition.reasons,
-            message: condition.message,
-        };
-    });
-}
-function createMockPassesResponse(cityId, options) {
-    const { page = 1, limit = PASSES_PER_PAGE } = options;
-
-    const from = Date.now();
-    const to = from + 72 * 60 * 60 * 1000;
-
-    // 開始時刻を過ぎた通過は次回候補と一覧から外す
-    const passes = createMockPasses(cityId).filter((pass) => {
-        const start = Date.parse(pass.start.time);
-
-        return start >= from && start < to;
-    });
-
-    const summary = {
-        total: passes.length,
-        good: 0,
-        fair: 0,
-        poor: 0,
-        unknown: 0,
-    };
-
-    for (const pass of passes) {
-        summary[pass.visibility] += 1;
-    }
-
-    // モックは絞り込み・並べ替えを再現しない。
-    // ページ分けだけ確認できる。
-    return {
-        nextCandidate: passes[0] ?? null,
-        passes: passes.slice((page - 1) * limit, page * limit),
-        summary,
-        page,
-        limit,
-        total: passes.length,
-        totalPages: Math.ceil(passes.length / limit),
-    };
-}
-// ==================================================
 // 4. 通過1件の詳細を取得
 // ==================================================
 
 // GET /api/iss/passes/{id}
 async function fetchISSPassDetail(cityId, passId) {
-    if (USE_MOCK_PASSES) {
-        const pass = createMockPasses(cityId).find(
-            (item) => item.id === passId,
-        );
-
-        if (!pass) {
-            const error = new Error(
-                "詳細を取得できません。一覧を更新してください。",
-            );
-
-            error.status = 404;
-            throw error;
-        }
-
-        return pass;
-    }
     const params = new URLSearchParams({
         city: cityId,
     });
@@ -762,15 +621,6 @@ async function refreshPasses() {
 function resetPageAndRefresh() {
     currentPage = 1;
     refreshPasses();
-}
-
-// モックでは条件処理を実装していないため、選択欄を無効にする。
-// 本番ではGo側が絞り込み・並べ替えを担当する。
-if (USE_MOCK_PASSES) {
-    for (const control of [visibilityFilter, elevationFilter, passesSort]) {
-        control.disabled = true;
-        control.title = "モック表示中は絞り込み・並べ替えを利用できません。";
-    }
 }
 
 citySelect.addEventListener("change", resetPageAndRefresh);
