@@ -24,13 +24,17 @@ func TestSnapshotStore(t *testing.T) {
 	}
 
 	store.save("tokyo", []model.Pass{{ID: "tokyo_1", Message: "あとの一覧"}}, savedAt.Add(time.Hour))
-	if pass, _ := store.get("tokyo", "tokyo_1", savedAt.Add(time.Hour)); pass.Message != "最初の一覧" {
-		t.Errorf("同じIDは上書きしないはずが、%q になりました", pass.Message)
+	if pass, _ := store.get("tokyo", "tokyo_1", savedAt.Add(time.Hour)); pass.Message != "あとの一覧" {
+		t.Errorf("同じIDは最新の一覧で上書きするはずが、%q のままです", pass.Message)
 	}
 
-	if _, found := store.get("tokyo", "tokyo_1", savedAt.Add(24*time.Hour)); found {
-		t.Error("24時間たったら見つからないはずです")
+	if _, found := store.get("tokyo", "tokyo_1", savedAt.Add(24*time.Hour)); !found {
+		t.Error("最後に保存してから24時間たつまでは見つかるはずです")
 	}
+	if _, found := store.get("tokyo", "tokyo_1", savedAt.Add(25*time.Hour)); found {
+		t.Error("最後に保存してから24時間たったら見つからないはずです")
+	}
+
 }
 
 func TestSnapshotStoreRemovesExpired(t *testing.T) {
